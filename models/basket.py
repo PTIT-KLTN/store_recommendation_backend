@@ -1,5 +1,6 @@
-from ingredient import Ingredient
-from dish import Dish
+
+from models.ingredient import Ingredient
+from models.dish import Dish
 
 class Basket:
     def __init__(self, user_id, basket_name="My Basket"):

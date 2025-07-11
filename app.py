@@ -32,14 +32,14 @@ def create_app():
         return {'status': 'healthy', 'radmin_ip': RADMIN_IP, 'network': RADMIN_NETWORK_NAME}
     
     # Register blueprints
-    # from routes.auth_routes import auth_bp
+    from routes.auth_routes import auth_bp
     # from routes.public_routes import public_bp
     # from routes.user_routes import user_bp
     # from routes.basket_routes import basket_bp
     # from routes.ai_routes import ai_bp
     # from routes.admin_routes import admin_bp
     
-    # app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
+    app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     # app.register_blueprint(public_bp, url_prefix='/api/v1/public')
     # app.register_blueprint(user_bp, url_prefix='/api/v1/user')
     # app.register_blueprint(basket_bp, url_prefix='/api/v1/basket')
@@ -63,4 +63,4 @@ if __name__ == '__main__':
     print(f"🌐 Access URL: http://{RADMIN_IP}:{FLASK_PORT}")
     print(f"📋 Test endpoint: http://{RADMIN_IP}:{FLASK_PORT}/api/v1/test")
     
-    app.run(debug=True, host='0.0.0.0', port=FLASK_PORT)
+    app.run(debug=True, host='localhost', port=FLASK_PORT)

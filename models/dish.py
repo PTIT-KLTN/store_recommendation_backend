@@ -1,4 +1,4 @@
-from ingredient import Ingredient
+from models.ingredient import Ingredient
 
 class Dish:
     def __init__(self, name, vietnamese_name, servings=1, image_url=None):

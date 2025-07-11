@@ -42,3 +42,20 @@ class User:
         user.is_enabled = data.get('is_enabled', True)
         user.created_at = data.get('created_at', datetime.utcnow())
         return user
+    
+    @classmethod
+    def is_active(self):
+        """Check if user account is active"""
+        return self.is_enabled
+    
+    @classmethod
+    def to_public_dict(self):
+        """Return user data without sensitive information"""
+        return {
+            'email': self.email,
+            'fullname': self.fullname,
+            'role': self.role,
+            'location': self.location,
+            'is_enabled': self.is_enabled,
+            'created_at': self.created_at
+        }
