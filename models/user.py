@@ -43,12 +43,10 @@ class User:
         user.created_at = data.get('created_at', datetime.utcnow())
         return user
     
-    @classmethod
     def is_active(self):
         """Check if user account is active"""
         return self.is_enabled
     
-    @classmethod
     def to_public_dict(self):
         """Return user data without sensitive information"""
         return {

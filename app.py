@@ -2,9 +2,9 @@ from flask import Flask
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from flask_bcrypt import Bcrypt
-from config import Config
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 load_dotenv()
 
@@ -14,38 +14,49 @@ FLASK_PORT = os.getenv('FLASK_PORT')
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     
-    # Enhanced CORS for Radmin VPN
+    app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+    app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES_HOURS', 24)))
+    app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES_DAYS', 90)))
+    
+    # Simplified CORS configuration
     CORS(app, 
-         origins=['*'],
-         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-         allow_headers=['Content-Type', 'Authorization'],
-         supports_credentials=True)
+         origins=['http://localhost:3000', 'http://127.0.0.1:3000', f'http://{RADMIN_IP}:3000'],
+         methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+         allow_headers=[
+             'Content-Type', 
+             'Authorization', 
+             'Access-Control-Allow-Credentials',
+             'Access-Control-Allow-Origin',
+             'Access-Control-Allow-Headers',
+             'Access-Control-Allow-Methods',
+             'X-Requested-With',
+             'Accept',
+             'Origin'
+         ],
+         supports_credentials=True,
+         send_wildcard=False,
+         max_age=3600)
     
     jwt = JWTManager(app)
     bcrypt = Bcrypt(app)
     
-    # Health check endpoint
-    @app.route('/health', methods=['GET'])
-    def health_check():
-        return {'status': 'healthy', 'radmin_ip': RADMIN_IP, 'network': RADMIN_NETWORK_NAME}
-    
     # Register blueprints
     from routes.auth_routes import auth_bp
-    # from routes.public_routes import public_bp
-    # from routes.user_routes import user_bp
+    from routes.public_routes import public_bp
+    from routes.user_routes import user_bp
     # from routes.basket_routes import basket_bp
     # from routes.ai_routes import ai_bp
     # from routes.admin_routes import admin_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
-    # app.register_blueprint(public_bp, url_prefix='/api/v1/public')
-    # app.register_blueprint(user_bp, url_prefix='/api/v1/user')
+    app.register_blueprint(public_bp, url_prefix='/api/v1/public')
+    app.register_blueprint(user_bp, url_prefix='/api/v1/user')
     # app.register_blueprint(basket_bp, url_prefix='/api/v1/basket')
     # app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
     # app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
-    
+        
     @app.route('/api/v1/test', methods=['GET'])
     def api_test():
         return {
@@ -59,8 +70,8 @@ def create_app():
 if __name__ == '__main__':
     app = create_app()
     
-    print(f"🚀 Flask API running on Radmin network: {RADMIN_NETWORK_NAME}")
-    print(f"🌐 Access URL: http://{RADMIN_IP}:{FLASK_PORT}")
-    print(f"📋 Test endpoint: http://{RADMIN_IP}:{FLASK_PORT}/api/v1/test")
+    print(f"Flask API running on Radmin network: {RADMIN_NETWORK_NAME}")
+    print(f"Access URL: http://{RADMIN_IP}:{FLASK_PORT}")
+    print(f"Test endpoint: http://{RADMIN_IP}:{FLASK_PORT}/api/v1/test")
     
-    app.run(debug=True, host='localhost', port=FLASK_PORT)
+    app.run(debug=True, host='0.0.0.0', port=FLASK_PORT, threaded=True, use_reloader=False)

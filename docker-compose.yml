@@ -3,12 +3,14 @@ services:
     image: mongo:latest  
     container_name: markendation_mongo
     ports:
-      - 27017:27017
+      - "127.0.0.1:27017:27017"                    # Local access
+      - "${RADMIN_IP}:${MONGODB_PORT}:27017"       # Radmin network access
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_INITDB_ROOT_USERNAME}  
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_INITDB_ROOT_PASSWORD}  
     volumes:
       - mongodb_data:/data/db
+    restart: unless-stopped
 
 volumes:
   mongodb_data:
