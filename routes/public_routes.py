@@ -327,6 +327,7 @@ def get_ingredient_suggestions():
         
         suggestions = []
         
+        db = MongoDBConnection.get_primary_db()
         # Search based on type
         if suggestion_type in ['all', 'name']:
             name_matches = db.ingredients.find(

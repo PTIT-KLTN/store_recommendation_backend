@@ -64,3 +64,5 @@ class GoogleOAuthService:
             raise Exception(f"Network error when getting user info: {str(e)}")
         except Exception as e:
             raise Exception(f"Failed to get user info from Google: {str(e)}")
+        
+google_oauth_service = GoogleOAuthService()

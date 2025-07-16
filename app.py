@@ -46,14 +46,14 @@ def create_app():
     from routes.auth_routes import auth_bp
     from routes.public_routes import public_bp
     from routes.user_routes import user_bp
-    # from routes.basket_routes import basket_bp
+    from routes.basket_routes import basket_bp
     # from routes.ai_routes import ai_bp
     # from routes.admin_routes import admin_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(public_bp, url_prefix='/api/v1/public')
     app.register_blueprint(user_bp, url_prefix='/api/v1/user')
-    # app.register_blueprint(basket_bp, url_prefix='/api/v1/basket')
+    app.register_blueprint(basket_bp, url_prefix='/api/v1/basket')
     # app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
     # app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
         

@@ -2,7 +2,9 @@ from bson import ObjectId
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from database.mongodb import MongoDBConnection
+from datetime import datetime
 
+from services.async_tasks import async_update_near_stores, location_service
 user_bp = Blueprint('user', __name__)
 
 @user_bp.route('', methods=['GET'])
@@ -40,8 +42,18 @@ def update_location():
         
         db = MongoDBConnection.get_primary_db()
         
+        location_obj = {
+            'latitude': float(location_data['latitude']),
+            'longitude': float(location_data['longitude']),
+            'address': location_data.get('address', ''),
+            'city': location_data.get('city', ''),
+            'district': location_data.get('district', ''),
+            'ward': location_data.get('ward', ''),
+            'updated_at': datetime.now()
+        }
+
         # Update user location and reset near_stores
-        db.users.update_one(
+        result = db.users.update_one(
             {'email': current_user_email},
             {
                 '$set': {
@@ -51,10 +63,34 @@ def update_location():
             }
         )
         
-        # TODO: Implement async task to update near stores
-        # This would be equivalent to the @Async method in Spring Boot
+        if result.matched_count == 0:
+            return jsonify({'message': 'User not found'}), 404
         
-        return jsonify({'message': 'Location updated successfully'}), 202
+        # Get user ID for async task
+        user_data = db.users.find_one({'email': current_user_email})
+        user_id = str(user_data['_id'])
         
+        # Trigger async task to update near stores
+        try:
+            async_update_near_stores.delay(user_id, location_obj)
+            async_message = 'Location updated successfully. Finding nearby stores...'
+        except Exception as async_error:
+            print(f"Failed to start async task: {async_error}")
+            # Fallback to synchronous update if async fails
+            try:
+                location_service.update_user_near_stores(user_id, location_obj)
+                async_message = 'Location and nearby stores updated successfully'
+            except Exception as sync_error:
+                print(f"Failed to update near stores synchronously: {sync_error}")
+                async_message = 'Location updated successfully. Nearby stores will be updated shortly'
+        
+        return jsonify({
+            'message': async_message,
+            'location': location_obj,
+            'user_id': user_id
+        }), 202
+        
+    except ValueError as ve:
+        return jsonify({'message': f'Invalid coordinate values: {str(ve)}'}), 400
     except Exception as e:
-        return jsonify({'message': str(e)}), 500
+        return jsonify({'message': f'Failed to update location: {str(e)}'}), 500

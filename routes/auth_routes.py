@@ -3,7 +3,7 @@ from flask_jwt_extended import create_access_token, create_refresh_token, jwt_re
 from flask_bcrypt import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 import uuid, re
-from services.google_oauth_service import GoogleOAuthService
+from services.google_oauth_service import google_oauth_service
 
 from database.mongodb import MongoDBConnection
 from models.user import User
@@ -13,7 +13,6 @@ from bson import ObjectId
 auth_bp = Blueprint('auth', __name__)
 db = MongoDBConnection.get_primary_db()
 
-google_oauth_service = GoogleOAuthService()
 
 def validate_email(email):
     pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
