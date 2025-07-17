@@ -46,9 +46,6 @@ def update_location():
             'latitude': float(location_data['latitude']),
             'longitude': float(location_data['longitude']),
             'address': location_data.get('address', ''),
-            'city': location_data.get('city', ''),
-            'district': location_data.get('district', ''),
-            'ward': location_data.get('ward', ''),
             'updated_at': datetime.now()
         }
 

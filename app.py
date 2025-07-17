@@ -5,6 +5,7 @@ from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
+from services.async_tasks import celery_app
 
 load_dotenv()
 
@@ -69,7 +70,7 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    
+    # celery_app.start()
     print(f"Flask API running on Radmin network: {RADMIN_NETWORK_NAME}")
     print(f"Access URL: http://{RADMIN_IP}:{FLASK_PORT}")
     print(f"Test endpoint: http://{RADMIN_IP}:{FLASK_PORT}/api/v1/test")

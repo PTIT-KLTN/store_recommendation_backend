@@ -10,6 +10,7 @@ class LocationService:
         self.openroute_api_key = os.getenv('OPENROUTE_API_KEY')
         self.base_url = "https://api.openrouteservice.org"
         self.db = MongoDBConnection.get_primary_db()
+        self.metadata_db = MongoDBConnection.get_metadata_db()
     
     def calculate_distance(self, lat1, lon1, lat2, lon2):
         """
@@ -30,17 +31,18 @@ class LocationService:
         r = 6371
         return c * r
     
-    def find_nearby_stores(self, latitude, longitude, radius_km=10, limit=20):
+    def find_nearby_stores(self, latitude, longitude, radius_km=10, limit=10):
         """
         Find nearby stores using OpenRoute Service API
         Returns list of nearby stores with distances
         """
         try:
-            stores_collection = self.db.stores            
-            
-            # Calculate distances and filter by radius
+            stores_collection = self.metadata_db.stores.find({})  
+            print(f"🔍 Searching for stores near ({latitude}, {longitude}) within {radius_km} km")          
             nearby_stores = []
             for store in stores_collection:
+                if 'latitude' not in store or 'longitude' not in store:
+                    continue
                 distance = self.calculate_distance(
                     latitude, longitude,
                     store['latitude'], store['longitude']
@@ -50,17 +52,20 @@ class LocationService:
                     store_with_distance = store.copy()
                     store_with_distance['distance_km'] = round(distance, 2)
                     nearby_stores.append(store_with_distance)
-            
+                    
             # Sort by distance
             nearby_stores.sort(key=lambda x: x['distance_km'])
             
-            # Limit results
-            return nearby_stores[:limit]
+            # Return limited results
+            result = nearby_stores[:limit]
+            print(f"  📤 Returning {len(result)} stores")
+            
+            return result
             
         except Exception as e:
-            print(f"Error finding nearby stores: {e}")
+            print(f"🔍 ERROR in find_nearby_stores: {e}")
             return []
-    
+
     def get_route_info(self, start_lat, start_lng, end_lat, end_lng):
         """
         Get route information between two points using OpenRoute Service
@@ -112,7 +117,7 @@ class LocationService:
             
             # Find nearby stores
             nearby_stores = self.find_nearby_stores(latitude, longitude)
-            
+
             # Enhanced store data with route information
             enhanced_stores = []
             for store in nearby_stores:
