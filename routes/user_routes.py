@@ -1,10 +1,8 @@
-from bson import ObjectId
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from database.mongodb import MongoDBConnection
-from datetime import datetime
+from services.user_service import get_user_info_with_basket, update_user_location
+from validators.user_validators import validate_location_data
 
-from services.async_tasks import async_update_near_stores, location_service
 user_bp = Blueprint('user', __name__)
 
 @user_bp.route('', methods=['GET'])
@@ -12,21 +10,10 @@ user_bp = Blueprint('user', __name__)
 def get_user_info():
     try:
         current_user_email = get_jwt_identity()
-        db = MongoDBConnection.get_primary_db()
         
-        user_data = db.users.find_one({'email': current_user_email})
-        if not user_data:
-            return jsonify({'message': 'User not found'}), 404
-        
-        # Get user's basket
-        basket_data = db.baskets.find_one({'_id': ObjectId(user_data['basket_id'])})
-        
-        # Remove sensitive data
-        user_data.pop('password', None)
-        user_data['_id'] = str(user_data['_id'])
-        if basket_data:
-            basket_data['_id'] = str(basket_data['_id'])
-            user_data['basket'] = basket_data
+        user_data, error = get_user_info_with_basket(current_user_email)
+        if error:
+            return jsonify({'message': error}), 404
         
         return jsonify(user_data), 200
         
@@ -40,54 +27,15 @@ def update_location():
         current_user_email = get_jwt_identity()
         location_data = request.get_json()
         
-        db = MongoDBConnection.get_primary_db()
+        is_valid, message = validate_location_data(location_data)
+        if not is_valid:
+            return jsonify({'message': message}), 400
         
-        location_obj = {
-            'latitude': float(location_data['latitude']),
-            'longitude': float(location_data['longitude']),
-            'address': location_data.get('address', ''),
-            'updated_at': datetime.now()
-        }
-
-        # Update user location and reset near_stores
-        result = db.users.update_one(
-            {'email': current_user_email},
-            {
-                '$set': {
-                    'location': location_data,
-                    'near_stores': []
-                }
-            }
-        )
+        result, error = update_user_location(current_user_email, location_data)
+        if error:
+            return jsonify({'message': error}), 404
         
-        if result.matched_count == 0:
-            return jsonify({'message': 'User not found'}), 404
+        return jsonify(result), 202
         
-        # Get user ID for async task
-        user_data = db.users.find_one({'email': current_user_email})
-        user_id = str(user_data['_id'])
-        
-        # Trigger async task to update near stores
-        try:
-            async_update_near_stores.delay(user_id, location_obj)
-            async_message = 'Location updated successfully. Finding nearby stores...'
-        except Exception as async_error:
-            print(f"Failed to start async task: {async_error}")
-            # Fallback to synchronous update if async fails
-            try:
-                location_service.update_user_near_stores(user_id, location_obj)
-                async_message = 'Location and nearby stores updated successfully'
-            except Exception as sync_error:
-                print(f"Failed to update near stores synchronously: {sync_error}")
-                async_message = 'Location updated successfully. Nearby stores will be updated shortly'
-        
-        return jsonify({
-            'message': async_message,
-            'location': location_obj,
-            'user_id': user_id
-        }), 202
-        
-    except ValueError as ve:
-        return jsonify({'message': f'Invalid coordinate values: {str(ve)}'}), 400
     except Exception as e:
         return jsonify({'message': f'Failed to update location: {str(e)}'}), 500

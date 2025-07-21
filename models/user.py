@@ -1,7 +1,15 @@
 from datetime import datetime
 
+class UserValidationError(Exception):
+    pass
+
 class User:
     def __init__(self, email, password, fullname, role='USER'):
+        if not email:
+            raise UserValidationError("Email is required")
+        if not fullname:
+            raise UserValidationError("Fullname is required")
+        
         self.email = email
         self.password = password
         self.fullname = fullname

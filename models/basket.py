@@ -3,7 +3,7 @@ from models.ingredient import Ingredient
 from models.dish import Dish
 
 class Basket:
-    def __init__(self, user_id, basket_name="My Basket"):
+    def __init__(self, user_id, basket_name='My basket'):
         self.user_id = user_id
         self.basket_name = basket_name
         self.ingredients = []

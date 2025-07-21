@@ -4,8 +4,11 @@ from bson import ObjectId
 from database.mongodb import MongoDBConnection
 from services.location_service import location_service
 import os
+import time
+import hashlib
+from collections import defaultdict
 
-# celery -A services.async_tasks worker --loglevel=info --queues=location_updates,celery --pool=solo
+# celery -A services.async_tasks worker --loglevel=info --queues=location_updates,maintainance,celery --pool=solo
 
 # Initialize Celery
 celery_app = Celery('markendation_tasks', broker=os.getenv('REDIS_URL'), backend=os.getenv('REDIS_URL'))

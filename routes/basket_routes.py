@@ -1,7 +1,12 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from database.mongodb import MongoDBConnection
-from bson import ObjectId
+from services.basket_service import (
+    get_user_basket, save_basket_to_history, save_favorite_basket,
+    get_saved_baskets, remove_saved_basket
+)
+from validators.basket_validators import (
+    validate_basket_data, validate_basket_index, validate_favorite_basket_data
+)
 
 basket_bp = Blueprint('basket', __name__)
 
@@ -10,15 +15,10 @@ basket_bp = Blueprint('basket', __name__)
 def get_basket():
     try:
         current_user_email = get_jwt_identity()
-        db = MongoDBConnection.get_primary_db()
         
-        user_data = db.users.find_one({'email': current_user_email})
-        if not user_data:
-            return jsonify({'message': 'User not found'}), 404
-        
-        basket_data = db.baskets.find_one({'_id': ObjectId(user_data['basket_id'])})
-        if basket_data:
-            basket_data['_id'] = str(basket_data['_id'])
+        basket_data, error = get_user_basket(current_user_email)
+        if error:
+            return jsonify({'message': error}), 404
         
         return jsonify(basket_data), 200
         
@@ -32,42 +32,76 @@ def update_basket():
         current_user_email = get_jwt_identity()
         basket_data = request.get_json()
         
-        db = MongoDBConnection.get_primary_db()
+        is_valid, message = validate_basket_data(basket_data)
+        if not is_valid:
+            return jsonify({'message': message}), 400
         
-        user_data = db.users.find_one({'email': current_user_email})
-        if not user_data:
-            return jsonify({'message': 'User not found'}), 404
+        saved_basket_entry, error = save_basket_to_history(current_user_email, basket_data)
+        if error:
+            return jsonify({'message': error}), 404
         
-        # Update basket
-        db.baskets.update_one(
-            {'_id': ObjectId(user_data['basket_id'])},
-            {'$set': basket_data}
-        )
-        
-        # Return updated basket
-        updated_basket = db.baskets.find_one({'_id': ObjectId(user_data['basket_id'])})
-        updated_basket['_id'] = str(updated_basket['_id'])
-        
-        return jsonify(updated_basket), 200
+        return jsonify({
+            'message': 'Basket saved successfully',
+            'saved_basket': saved_basket_entry
+        }), 200
         
     except Exception as e:
-        return jsonify({'message': str(e)}), 500
+        return jsonify({'message': f'Error saving basket: {str(e)}'}), 500
 
-@basket_bp.route('/calculate', methods=['GET'])
+@basket_bp.route('/save', methods=['POST'])
 @jwt_required()
-def calculate_basket():
+def save_favorite_basket_route():
     try:
         current_user_email = get_jwt_identity()
-        db = MongoDBConnection.get_primary_db()
+        basket_data = request.get_json()
         
-        # TODO: Implement calculation logic similar to Spring Boot version
-        # This would involve:
-        # 1. Getting user's basket
-        # 2. Finding best products for each ingredient
-        # 3. Calculating costs for each store
-        # 4. Returning store recommendations
+        is_valid, message = validate_favorite_basket_data(basket_data)
+        if not is_valid:
+            return jsonify({'message': message}), 400
         
-        return jsonify({'message': 'Calculation not implemented yet'}), 501
+        basket_document, error = save_favorite_basket(current_user_email, basket_data)
+        if error:
+            return jsonify({'message': error}), 404
+        
+        return jsonify({
+            'message': 'Favorite basket saved successfully',
+            'basket': basket_document
+        }), 201
         
     except Exception as e:
-        return jsonify({'message': str(e)}), 500
+        return jsonify({'message': f'Error saving favorite basket: {str(e)}'}), 500
+
+@basket_bp.route('/savedBaskets', methods=['GET'])
+@jwt_required()
+def get_saved_baskets_route():
+    try:
+        current_user_email = get_jwt_identity()
+        
+        result, error = get_saved_baskets(current_user_email)
+        if error:
+            return jsonify({'message': error}), 404
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'message': f'Error fetching saved baskets: {str(e)}'}), 500
+
+@basket_bp.route('/remove/<int:basket_index>', methods=['POST'])
+@jwt_required()
+def remove_saved_basket_route(basket_index):
+    try:
+        current_user_email = get_jwt_identity()
+        
+        is_valid, message = validate_basket_index(basket_index)
+        if not is_valid:
+            return jsonify({'message': message}), 400
+        
+        result, error = remove_saved_basket(current_user_email, basket_index)
+        if error:
+            status_code = 404 if "not found" in error.lower() else 400
+            return jsonify({'message': error}), status_code
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({'message': f'Error removing saved basket: {str(e)}'}), 500

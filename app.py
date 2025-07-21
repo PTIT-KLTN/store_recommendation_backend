@@ -5,7 +5,6 @@ from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
 from datetime import timedelta
-from services.async_tasks import celery_app
 
 load_dotenv()
 
@@ -21,7 +20,6 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES_HOURS', 24)))
     app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES_DAYS', 90)))
     
-    # Simplified CORS configuration
     CORS(app, 
          origins=['http://localhost:3000', 'http://127.0.0.1:3000', f'http://{RADMIN_IP}:3000'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -49,14 +47,16 @@ def create_app():
     from routes.user_routes import user_bp
     from routes.basket_routes import basket_bp
     # from routes.ai_routes import ai_bp
-    # from routes.admin_routes import admin_bp
+    from routes.calculate_routes import calculate_bp
+    from routes.admin_routes import admin_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(public_bp, url_prefix='/api/v1/public')
     app.register_blueprint(user_bp, url_prefix='/api/v1/user')
     app.register_blueprint(basket_bp, url_prefix='/api/v1/basket')
     # app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
-    # app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
+    app.register_blueprint(calculate_bp, url_prefix='/api/v1/calculate')
+    app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
         
     @app.route('/api/v1/test', methods=['GET'])
     def api_test():

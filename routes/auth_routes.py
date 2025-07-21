@@ -1,164 +1,15 @@
 from flask import Blueprint, request, jsonify
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from flask_bcrypt import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
-import uuid, re
+from datetime import datetime
 from services.google_oauth_service import google_oauth_service
-
+from services.auth_service import process_user, create_user_profile
+from validators.auth_validators import validate_email, validate_password
+from utils.token_utils import create_user_tokens
 from database.mongodb import MongoDBConnection
-from models.user import User
-from models.basket import Basket
-from bson import ObjectId
 
 auth_bp = Blueprint('auth', __name__)
 db = MongoDBConnection.get_primary_db()
-
-
-def validate_email(email):
-    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-    return re.match(pattern, email) is not None
-
-def validate_password(password):
-    if len(password) < 5:
-        return False, "Password must be at least 5 characters long"
-    return True, "Password is valid"
-
-def create_user_tokens(user_email, auth_provider='local'):
-    access_token = create_access_token(identity=user_email)
-    refresh_token = create_refresh_token(identity=user_email)
-    
-    db.refresh_tokens.delete_many({'user_email': user_email})
-    
-    refresh_token_doc = {
-        '_id': str(uuid.uuid4()),
-        'refresh_token': refresh_token,
-        'user_email': user_email,
-        'expiration_time': datetime.utcnow() + timedelta(days=90),
-        'created_at': datetime.utcnow(),
-        'auth_provider': auth_provider
-    }
-    db.refresh_tokens.insert_one(refresh_token_doc)
-    
-    return access_token, refresh_token
-
-def process_user(user_data, auth_provider='local'):
-    try:
-        email = user_data.get('email')
-        fullname = user_data.get('fullname')
-        password = user_data.get('password', '')
-        google_id = user_data.get('google_id') or user_data.get('sub') or user_data.get('id')
-        picture = user_data.get('picture', '')
-        given_name = user_data.get('given_name', '')
-        family_name = user_data.get('family_name', '')
-        
-        if not email:
-            raise Exception("Email is required")
-        
-        if not fullname and given_name and family_name:
-            fullname = f"{given_name} {family_name}".strip()
-        
-        if not fullname:
-            raise Exception("Fullname is required")
-        
-        # Search for existing user
-        search_query = {'email': email}
-        if auth_provider == 'google' and google_id:
-            search_query = {
-                '$or': [
-                    {'email': email},
-                    {'google_id': google_id}
-                ]
-            }
-        
-        existing_user = db.users.find_one(search_query)
-        
-        if existing_user:
-            if auth_provider == 'local':
-                raise Exception("User with this email already exists")
-            else:
-                update_data = {'last_login': datetime.utcnow()}
-                
-                if google_id and not existing_user.get('google_id'):
-                    update_data['google_id'] = google_id
-                    update_data['auth_provider'] = 'google'
-                
-                if picture and not existing_user.get('picture'):
-                    update_data['picture'] = picture
-                
-                db.users.update_one(
-                    {'_id': existing_user['_id']},
-                    {'$set': update_data}
-                )
-                
-                user_email = existing_user['email']
-                is_new_user = False
-        else:
-            if auth_provider == 'local':
-                if not password:
-                    raise Exception("Password is required")
-                is_valid, message = validate_password(password)
-                if not is_valid:
-                    raise Exception(message)
-                password = generate_password_hash(password)
-            
-            basket = Basket(user_id=None)
-            basket_result = db.baskets.insert_one(basket.to_dict())
-            
-            user = User(email=email, password=password, fullname=fullname)
-            user_dict = user.to_dict()
-            user_dict.update({
-                'basket_id': str(basket_result.inserted_id),
-                'auth_provider': auth_provider,
-                'email_verified': auth_provider == 'google',
-                'last_login': datetime.utcnow()
-            })
-            
-            if auth_provider == 'google':
-                if google_id:
-                    user_dict['google_id'] = google_id
-                if picture:
-                    user_dict['picture'] = picture
-            
-            user_result = db.users.insert_one(user_dict)
-            
-            db.baskets.update_one(
-                {'_id': basket_result.inserted_id},
-                {'$set': {'user_id': str(user_result.inserted_id)}}
-            )
-            
-            user_email = email
-            is_new_user = True
-        
-        access_token, refresh_token = create_user_tokens(user_email, auth_provider)
-        
-        user_data_from_db = db.users.find_one({'email': user_email})
-        user_profile = {
-            'id': str(user_data_from_db['_id']),
-            'email': user_data_from_db['email'],
-            'fullname': user_data_from_db['fullname'],
-            'role': user_data_from_db.get('role', 'USER'),
-            'picture': user_data_from_db.get('picture'),
-            'auth_provider': user_data_from_db.get('auth_provider', auth_provider),
-            'email_verified': user_data_from_db.get('email_verified', auth_provider == 'google'),
-            'location': user_data_from_db.get('location'),
-            'created_at': user_data_from_db.get('created_at')
-        }
-        
-        if auth_provider == 'google':
-            message = 'Google login successful'
-        else:
-            message = 'User registered successfully' if is_new_user else 'Login successful'
-        
-        return {
-            'access_token': access_token,
-            'refresh_token': refresh_token,
-            'user': user_profile,
-            'is_new_user': is_new_user,
-            'message': message
-        }
-        
-    except Exception as e:
-        raise Exception(f"Failed to process user: {str(e)}")
 
 @auth_bp.route('/register', methods=['POST'])
 def register():
@@ -196,25 +47,9 @@ def login():
         
         if not user_data.get('is_enabled', True):
             return jsonify({'message': 'Account is disabled'}), 401
-        
+
         access_token, refresh_token = create_user_tokens(data['email'], 'local')
-        
-        db.users.update_one(
-            {'email': data['email']},
-            {'$set': {'last_login': datetime.utcnow()}}
-        )
-        
-        user_profile = {
-            'id': str(user_data['_id']),
-            'email': user_data['email'],
-            'fullname': user_data['fullname'],
-            'role': user_data.get('role', 'USER'),
-            'picture': user_data.get('picture'),
-            'auth_provider': user_data.get('auth_provider', 'local'),
-            'email_verified': user_data.get('email_verified', False),
-            'location': user_data.get('location'),
-            'created_at': user_data.get('created_at')
-        }
+        user_profile = create_user_profile(user_data, 'local')
         
         return jsonify({
             'access_token': access_token,
