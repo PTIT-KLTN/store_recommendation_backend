@@ -49,6 +49,7 @@ def create_app():
     # from routes.ai_routes import ai_bp
     from routes.calculate_routes import calculate_bp
     from routes.admin_routes import admin_bp
+    from routes.store_routes import store_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(public_bp, url_prefix='/api/v1/public')
@@ -57,6 +58,7 @@ def create_app():
     # app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
     app.register_blueprint(calculate_bp, url_prefix='/api/v1/calculate')
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
+    app.register_blueprint(store_bp, url_prefix='/api/v1/stores')
         
     @app.route('/api/v1/test', methods=['GET'])
     def api_test():

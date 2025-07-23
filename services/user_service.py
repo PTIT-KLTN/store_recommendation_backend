@@ -5,22 +5,24 @@ from services.async_tasks import async_update_near_stores, location_service
 
 db = MongoDBConnection.get_primary_db()
 
-def get_user_info_with_basket(user_email):
-    user_data = db.users.find_one({'email': user_email})
-    if not user_data:
-        return None, "User not found"
-    
-    # Get user's basket
-    basket_data = db.baskets.find_one({'_id': ObjectId(user_data['basket_id'])})
-    
-    # Remove sensitive data
-    user_data.pop('password', None)
-    user_data['_id'] = str(user_data['_id'])
-    if basket_data:
-        basket_data['_id'] = str(basket_data['_id'])
-        user_data['basket'] = basket_data
-    
-    return user_data, None
+def get_user_info(user_email):
+    """Get basic user info - only essential fields"""
+    try:
+        user_data = db.users.find_one({'email': user_email})
+        if not user_data:
+            return None, "User not found"
+        
+        user_info = {
+            'email': user_data.get('email'),
+            'fullname': user_data.get('fullname'),
+            'created_at': user_data.get('created_at'),
+            'location' : user_data.get('location')
+        }
+        
+        return user_info, None
+        
+    except Exception as e:
+        return None, f"Error getting user info: {str(e)}"
 
 def update_user_location(user_email, location_data):
     location_obj = {

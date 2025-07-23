@@ -39,10 +39,6 @@ def create_admin_account(admin_data, is_super_admin=False):
     # Hash password
     hashed_password = generate_password_hash(admin_data['password'])
     
-    # Create basket for admin
-    basket = Basket(user_id=None)
-    basket_result = db.baskets.insert_one(basket.to_dict())
-    
     # Create admin user with appropriate role
     role = 'SUPER_ADMIN' if is_super_admin else 'ADMIN'
     user = User(
@@ -52,15 +48,8 @@ def create_admin_account(admin_data, is_super_admin=False):
         role=role
     )
     user_dict = user.to_dict()
-    user_dict['basket_id'] = str(basket_result.inserted_id)
     
     user_result = db.users.insert_one(user_dict)
-    
-    # Update basket with user_id
-    db.baskets.update_one(
-        {'_id': basket_result.inserted_id},
-        {'$set': {'user_id': str(user_result.inserted_id)}}
-    )
     
     # Return admin info (without password)
     admin_info = {
@@ -74,10 +63,7 @@ def create_admin_account(admin_data, is_super_admin=False):
     return admin_info, None
 
 # Dish CRUD operations
-def create_dish(dish_data):
-    dish_data['created_at'] = datetime.utcnow()
-    dish_data['updated_at'] = datetime.utcnow()
-    
+def create_dish(dish_data):    
     result = db.dishes.insert_one(dish_data)
     dish_data['_id'] = str(result.inserted_id)
     
@@ -95,9 +81,7 @@ def get_dish_by_id(dish_id):
         return None, str(e)
 
 def update_dish(dish_id, update_data):
-    try:
-        update_data['updated_at'] = datetime.utcnow()
-        
+    try:        
         result = db.dishes.update_one(
             {'_id': ObjectId(dish_id)},
             {'$set': update_data}
@@ -165,9 +149,6 @@ def get_all_dishes(page, size, search_query=None):
 
 # Ingredient CRUD operations
 def create_ingredient(ingredient_data):
-    ingredient_data['created_at'] = datetime.utcnow()
-    ingredient_data['updated_at'] = datetime.utcnow()
-    
     result = db.ingredients.insert_one(ingredient_data)
     ingredient_data['_id'] = str(result.inserted_id)
     
@@ -185,9 +166,7 @@ def get_ingredient_by_id(ingredient_id):
         return None, str(e)
 
 def update_ingredient(ingredient_id, update_data):
-    try:
-        update_data['updated_at'] = datetime.utcnow()
-        
+    try:        
         result = db.ingredients.update_one(
             {'_id': ObjectId(ingredient_id)},
             {'$set': update_data}
