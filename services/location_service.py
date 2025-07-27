@@ -18,7 +18,6 @@ class LocationService:
         on the earth (specified in decimal degrees) using Haversine formula
         Returns distance in kilometers
         """
-        # Convert decimal degrees to radians
         lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
         
         # Haversine formula
@@ -27,7 +26,6 @@ class LocationService:
         a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
         c = 2 * math.asin(math.sqrt(a))
         
-        # Radius of earth in kilometers
         r = 6371
         return c * r
     
@@ -38,7 +36,7 @@ class LocationService:
         """
         try:
             stores_collection = self.metadata_db.stores.find({})  
-            print(f"🔍 Searching for stores near ({latitude}, {longitude}) within {radius_km} km")          
+            print(f"Searching for stores near ({latitude}, {longitude}) within {radius_km} km")          
             nearby_stores = []
             for store in stores_collection:
                 if 'latitude' not in store or 'longitude' not in store:

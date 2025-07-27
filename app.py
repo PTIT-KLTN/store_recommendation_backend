@@ -80,4 +80,4 @@ if __name__ == '__main__':
     print(f"Access URL: http://{RADMIN_IP}:{FLASK_PORT}")
     print(f"Test endpoint: http://{RADMIN_IP}:{FLASK_PORT}/api/v1/test")
     
-    app.run(debug=True, host='0.0.0.0', port=FLASK_PORT, threaded=True, use_reloader=False)
+    app.run(debug=True, host='0.0.0.0', port=FLASK_PORT, threaded=True, use_reloader=True)
