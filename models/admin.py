@@ -10,6 +10,7 @@ class Admin:
                  email: str,
                  password: str,
                  fullname: str,
+                 role: str = 'ADMIN',
                  is_enabled: bool = True,
                  created_at: datetime = None,
                  updated_at: datetime = None,
@@ -31,6 +32,7 @@ class Admin:
         self.password = password
         self.fullname = fullname
         self.is_enabled = is_enabled
+        self.role = role
 
         # Timestamps
         now = datetime.utcnow()
@@ -44,6 +46,7 @@ class Admin:
             "email": self.email,
             "password": self.password,
             "fullname": self.fullname,
+            "role": self.role, 
             "is_enabled": self.is_enabled,
             "created_at": self.created_at,
             "updated_at": self.updated_at
