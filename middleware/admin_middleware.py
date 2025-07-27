@@ -1,6 +1,6 @@
 from flask import jsonify
 from flask_jwt_extended import get_jwt_identity
-from services.admin_service import get_user_role, get_user_role_and_type
+from services.admin_service import get_admin_role, get_admin_role_and_type
 from validators.admin_validators import validate_admin_role, validate_super_admin_role
 
 def check_admin_access():
@@ -10,7 +10,7 @@ def check_admin_access():
         if not current_user_email:
             return False, "Authentication required"
         
-        user_role, error = get_user_role(current_user_email)
+        user_role, error = get_admin_role(current_user_email)
         if error:
             return False, error
         
@@ -29,7 +29,7 @@ def check_super_admin_access():
         if not current_user_email:
             return False, "Authentication required"
         
-        user_role, is_super_admin, error = get_user_role_and_type(current_user_email)
+        user_role, is_super_admin, error = get_admin_role_and_type(current_user_email)
         if error:
             return False, error
         
