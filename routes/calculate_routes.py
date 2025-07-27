@@ -42,7 +42,7 @@ def calculate_basket():
             return jsonify({'message': 'Basket is empty', 'store_recommendations': []}), 200
         
         processed_ingredients = caculate_service.process_all_ingredients(ingredients_list, dishes_list)
-        
+
         if not processed_ingredients:
             return jsonify({'message': 'No valid ingredients', 'store_recommendations': []}), 200
         
@@ -58,7 +58,7 @@ def calculate_basket():
             metadata_db, candidate_stores, processed_ingredients
         )
         
-        store_calculations = caculate_service.calculate_store_scores(store_calculations)
+        store_calculations = caculate_service.calculate_store_scores(store_calculations, current_user_email, db)
         store_calculations.sort(key=lambda x: x['overall_score'], reverse=True)
         
         total_time = time.time() - start_time

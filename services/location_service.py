@@ -58,7 +58,7 @@ class LocationService:
             
             # Return limited results
             result = nearby_stores[:limit]
-            print(f"  📤 Returning {len(result)} stores")
+            print(f"Returning {len(result)} stores")
             
             return result
             

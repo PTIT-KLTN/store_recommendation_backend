@@ -62,10 +62,7 @@ def create_admin_account(admin_data, is_super_admin=False):
     return admin_info, None
 
 # Dish CRUD operations
-def create_dish(dish_data):
-    dish_data['created_at'] = datetime.utcnow()
-    dish_data['updated_at'] = datetime.utcnow()
-    
+def create_dish(dish_data):    
     result = db.dishes.insert_one(dish_data)
     dish_data['_id'] = str(result.inserted_id)
     
@@ -83,9 +80,7 @@ def get_dish_by_id(dish_id):
         return None, str(e)
 
 def update_dish(dish_id, update_data):
-    try:
-        update_data['updated_at'] = datetime.utcnow()
-        
+    try:        
         result = db.dishes.update_one(
             {'_id': ObjectId(dish_id)},
             {'$set': update_data}
@@ -153,9 +148,6 @@ def get_all_dishes(page, size, search_query=None):
 
 # Ingredient CRUD operations
 def create_ingredient(ingredient_data):
-    ingredient_data['created_at'] = datetime.utcnow()
-    ingredient_data['updated_at'] = datetime.utcnow()
-    
     result = db.ingredients.insert_one(ingredient_data)
     ingredient_data['_id'] = str(result.inserted_id)
     
@@ -173,9 +165,7 @@ def get_ingredient_by_id(ingredient_id):
         return None, str(e)
 
 def update_ingredient(ingredient_id, update_data):
-    try:
-        update_data['updated_at'] = datetime.utcnow()
-        
+    try:        
         result = db.ingredients.update_one(
             {'_id': ObjectId(ingredient_id)},
             {'$set': update_data}

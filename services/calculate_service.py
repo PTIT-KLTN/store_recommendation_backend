@@ -1,26 +1,12 @@
-import re
+import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import topsispy as tp
 
 class CalculateService:
     
     def process_all_ingredients(self, basket_ingredients, basket_dishes):
-
-        def parse_unit_and_quantity(unit_string):
-            if not unit_string:
-                return 1, ""
-            
-            unit_string = str(unit_string).strip()
-            
-            match = re.match(r'^(\d+(?:\.\d+)?)\s*(.*)$', unit_string)
-            
-            if match:
-                quantity = float(match.group(1))
-                unit = match.group(2).strip()
-                return quantity, unit
-            else:
-                return 1, unit_string
-        
         processed_ingredients = {}   
+        
         # Process basket ingredients
         for ingredient in basket_ingredients:
             if isinstance(ingredient, dict) and ingredient.get('name'):
@@ -34,7 +20,8 @@ class CalculateService:
                     'category': ingredient.get('category', ''),
                     'vietnamese_name': ingredient.get('vietnamese_name', ''),
                     'unit': ingredient.get('unit', ''),
-                    'total_quantity': quantity
+                    'net_unit_value': ingredient.get('net_unit_value', 1),
+                    'total_quantity': quantity * ingredient.get('net_unit_value', 1)
                 }
         
         # Process dish ingredients
@@ -45,8 +32,9 @@ class CalculateService:
                 for dish_ingredient in dish.get('ingredients', []):
                     if isinstance(dish_ingredient, dict) and dish_ingredient.get('name'):
                         name = dish_ingredient['name'].strip()
-                        unit_string = dish_ingredient.get('unit', '')
-                        ingredient_quantity, ingredient_unit = parse_unit_and_quantity(unit_string)
+                        ingredient_quantity = dish_ingredient.get('quantity', 1)
+                        ingredient_unit = dish_ingredient.get('unit', '')
+                        net_unit_value = dish_ingredient.get('net_unit_value', 1)
                         
                         total_dish_quantity = ingredient_quantity * dish_servings
                         
@@ -58,11 +46,11 @@ class CalculateService:
                                 'category': dish_ingredient.get('category', ''),
                                 'vietnamese_name': dish_ingredient.get('vietnamese_name', ''),
                                 'unit': ingredient_unit,
-                                'total_quantity': total_dish_quantity
+                                'net_unit_value': net_unit_value,
+                                'total_quantity': total_dish_quantity * net_unit_value
                             }
         
         return processed_ingredients
-
 
     def generate_ngrams_from_text(self, text, n=3):
         """Generate n-grams from text for comparison"""
@@ -156,7 +144,7 @@ class CalculateService:
         }
         
         def process_store(store):
-            # """Process single store with optimized ingredient lookup and netUnitValue calculation"""
+            # """Process single store with optimized ingredient lookup and net_unit_value calculation"""
             store_id = store.get('store_id')
             store_name = store.get('store_name')
             store_distance = store.get('distance_km', 0)
@@ -197,7 +185,6 @@ class CalculateService:
                     best_field = None
                     
                     for product_name in product_names:
-                        # Pass token_ngrams if available for enhanced matching
                         product_ngrams = product.get('token_ngrams', [])
                         score = self.calculate_fuzzy_match_score(ingredient_name, product_name, product_ngrams)
                         if score > best_score:
@@ -229,6 +216,7 @@ class CalculateService:
             
             for ingredient_name, ingredient_info in processed_ingredients.items():
                 matches = ingredient_products.get(ingredient_name, [])
+                
                 ingredient_quantity_needed = ingredient_info['total_quantity']
                 ingredient_unit = ingredient_info.get('unit', '')
                 
@@ -236,10 +224,10 @@ class CalculateService:
                     best_match = matches[0]
                     best_product = best_match['product']
                     
-                    # Get price and netUnitValue
+                    # Get price and net_unit_value
                     price_per_unit = best_product.get('price')
                     
-                    net_unit_value = best_product.get('netUnitValue', 1)
+                    net_unit_value = best_product.get('net_unit_value', 1)
                     product_unit = best_product.get('unit', '')
                     actual_quantity_needed = ingredient_quantity_needed / net_unit_value if net_unit_value > 0 else 1
                     
@@ -250,13 +238,13 @@ class CalculateService:
                     total_cost += item_cost
                     found_ingredients += 1
                     
-                    # Get top 5 alternative products with netUnitValue calculation
+                    # Get top 5 alternative products with net_unit_value calculation
                     alternatives = []
                     for i, match in enumerate(matches[1:6]):  # Skip best match, get next 5
                         alt_product = match['product']
                         alt_price = alt_product.get('price')
                         
-                        alt_net_unit_value = alt_product.get('netUnitValue', 1)
+                        alt_net_unit_value = alt_product.get('net_unit_value', 1)
                         alt_product_unit = alt_product.get('unit', '')
                         alt_units_to_buy = max(1, round(ingredient_quantity_needed / alt_net_unit_value if alt_net_unit_value > 0 else 1, 3))
                         
@@ -269,7 +257,7 @@ class CalculateService:
                             'product_unit': alt_product_unit,
                             'product_net_unit_value': alt_net_unit_value,
                             'price_per_unit': alt_price,
-                            'original_price': alt_product.get('sysPrice', alt_price),
+                            'original_price': alt_product.get('sys_price', alt_price),
                             'discount_percent': alt_product.get('discountPercent', 0),
                             'quantity_needed': round(alt_units_to_buy, 3),
                             'total_price': round(alt_price * alt_units_to_buy, 2),
@@ -280,7 +268,7 @@ class CalculateService:
                             'rank': i + 2  # Rank starting from 2 (since best is rank 1)
                         })
                     
-                    # Enhanced product information with netUnitValue
+                    # Enhanced product information with net_unit_value
                     store_items.append({
                         'ingredient_name': ingredient_name,
                         'ingredient_vietnamese_name': ingredient_info.get('vietnamese_name', ''),
@@ -294,7 +282,7 @@ class CalculateService:
                         'product_unit': product_unit,
                         'product_net_unit_value': net_unit_value,
                         'price_per_unit': price_per_unit,
-                        'original_price': best_product.get('sysPrice', price_per_unit),
+                        'original_price': best_product.get('sys_price', price_per_unit),
                         'discount_percent': best_product.get('discountPercent', 0),
                         'quantity_needed': round(units_to_buy, 3),
                         'total_price': round(item_cost, 2),
@@ -375,54 +363,162 @@ class CalculateService:
         return store_calculations
 
 
-    def calculate_store_scores(self, store_calculations):
-        """Enhanced scoring with rating consideration"""
+    def calculate_store_scores(self, store_calculations, user_email, db_primary):
+        """Enhanced scoring using TOPSIS method with familiarity consideration"""
         if not store_calculations:
             return store_calculations
         
-        # Get ranges for normalization
-        costs = [calc['total_cost'] for calc in store_calculations if calc['total_cost'] > 0]
-        max_cost = max(costs) if costs else 1
-        min_cost = min(costs) if costs else 0
+        # Get user's favourite stores
+        user_data = db_primary.users.find_one({'email': user_email})
+        favourite_stores = set()
+        if user_data and user_data.get('favourite_stores'):
+            favourite_stores = set(str(store_id) for store_id in user_data['favourite_stores'])
         
-        distances = [calc['distance_km'] for calc in store_calculations]
-        max_distance = max(distances) if distances else 1
-        min_distance = min(distances) if distances else 0
+        # Calculate familiarity score for each store
+        for calc in store_calculations:
+            store_id = str(calc.get('store_id', ''))
+            calc['familiarity_score'] = 100 if store_id in favourite_stores else 0
         
-        ratings = [calc['store_rating'] for calc in store_calculations]
-        max_rating = max(ratings) if ratings else 5
-        min_rating = min(ratings) if ratings else 0
+        # Prepare decision matrix for TOPSIS
+        decision_matrix = []
+        valid_stores = []
         
         for calc in store_calculations:
-            # Enhanced scoring: Availability 40%, Price 30%, Distance 20%, Rating 10%
-            availability_score = calc['availability_percentage'] * 0.4
+            total_cost = max(float(calc.get('total_cost', 1)), 1.0)
+            distance_km = max(float(calc.get('distance_km', 0.1)), 0.1)
+            store_rating = max(float(calc.get('store_rating', 0.1)), 0.1)
+            availability_percentage = max(float(calc.get('availability_percentage', 0.1)), 0.1)
+            familiarity_score = float(calc.get('familiarity_score', 0))
             
-            # Price score (lower price = higher score)
-            if calc['total_cost'] > 0 and max_cost > min_cost:
-                price_score = (1 - ((calc['total_cost'] - min_cost) / (max_cost - min_cost))) * 30
+            # Skip invalid stores
+            if total_cost <= 0 or distance_km <= 0:
+                continue
+                
+            row = [total_cost, distance_km, store_rating, availability_percentage, familiarity_score]
+            decision_matrix.append(row)
+            valid_stores.append(calc)
+        
+        # Fallback if not enough valid stores
+        if len(decision_matrix) < 2:
+            return self.calculate_store_scores_fallback(store_calculations)
+        
+        # TOPSIS calculation
+        weights = [0.0872, 0.1499, 0.0487, 0.4572, 0.2596]  # Price, Distance, Rating, Available, Familiar
+        signs = [-1, -1, 1, 1, 1]  # Lower is better for price/distance, higher is better for others
+        
+        # Handle identical columns by adding small variation
+        matrix = np.array(decision_matrix, dtype=float)
+        for j in range(matrix.shape[1]):
+            if np.all(matrix[:, j] == matrix[0, j]):
+                matrix[:, j] = matrix[:, j] + np.random.normal(0, 0.001, matrix.shape[0])
+        
+        try:
+            # Debug: Print what topsis returns
+            topsis_result = tp.topsis(matrix.tolist(), weights, signs)
+            print(f"TOPSIS result type: {type(topsis_result)}")
+            print(f"TOPSIS result: {topsis_result}")
+            
+            # Handle different return formats from topsis
+            if isinstance(topsis_result, tuple):
+                # If topsis returns (scores, ranks)
+                scores, ranks = topsis_result
+                print(f"Scores type: {type(scores)}")
+                print(f"Scores: {scores}")
+                
+                # Convert scores to list if it's numpy array
+                if hasattr(scores, 'tolist'):
+                    scores_list = scores.tolist()
+                elif isinstance(scores, (list, tuple)):
+                    scores_list = list(scores)
+                else:
+                    # If scores is a single value, create a list
+                    scores_list = [scores] * len(valid_stores)
+                    
             else:
-                price_score = 0
+                # If topsis returns only scores (not a tuple)
+                scores = topsis_result
+                print(f"Single scores type: {type(scores)}")
+                
+                if hasattr(scores, 'tolist'):
+                    scores_list = scores.tolist()
+                elif isinstance(scores, (list, tuple)):
+                    scores_list = list(scores)
+                else:
+                    # If it's a single value, distribute equally or handle error
+                    scores_list = [float(scores)] * len(valid_stores)
             
-            # Distance score (closer = higher score)
-            if max_distance > min_distance:
-                distance_score = (1 - ((calc['distance_km'] - min_distance) / (max_distance - min_distance))) * 20
+            print(f"Final scores_list: {scores_list}")
+            print(f"Length of scores_list: {len(scores_list)}")
+            print(f"Length of valid_stores: {len(valid_stores)}")
+            
+        except Exception as e:
+            print(f"Error in TOPSIS calculation: {e}")
+            # Fallback to simple scoring
+            scores_list = [0.5] * len(valid_stores)  # Default score
+        
+        # Ensure scores_list has the right length
+        if len(scores_list) != len(valid_stores):
+            print(f"Warning: scores_list length ({len(scores_list)}) != valid_stores length ({len(valid_stores)})")
+            # Pad with zeros or truncate as needed
+            if len(scores_list) < len(valid_stores):
+                scores_list.extend([0.0] * (len(valid_stores) - len(scores_list)))
             else:
-                distance_score = 20
-            
-            # Rating score (higher rating = higher score)
-            if max_rating > min_rating:
-                rating_score = ((calc['store_rating'] - min_rating) / (max_rating - min_rating)) * 10
-            else:
-                rating_score = 5  # Default score if all ratings are the same
-            
-            calc['overall_score'] = round(availability_score + price_score + distance_score + rating_score, 2)
-            
-            # Add detailed score breakdown
-            calc['score_breakdown'] = {
-                'availability_score': round(availability_score, 2),
-                'price_score': round(price_score, 2),
-                'distance_score': round(distance_score, 2),
-                'rating_score': round(rating_score, 2)
-            }
+                scores_list = scores_list[:len(valid_stores)]
+        
+        # Update store calculations with TOPSIS scores
+        for i, calc in enumerate(valid_stores):
+            try:
+                score = max(0.0, min(1.0, float(scores_list[i])))
+                calc['overall_score'] = round(score * 100, 2)
+                
+                calc['score_breakdown'] = {
+                    'price_weight': weights[0],
+                    'distance_weight': weights[1], 
+                    'rating_weight': weights[2],
+                    'availability_weight': weights[3],
+                    'familiarity_weight': weights[4],
+                    'topsis_score': round(score, 4)
+                }
+                
+                calc['raw_values'] = {
+                    'total_cost': calc.get('total_cost', 0),
+                    'distance_km': calc.get('distance_km', 0),
+                    'store_rating': calc.get('store_rating', 0), 
+                    'availability_percentage': calc.get('availability_percentage', 0),
+                    'familiarity_score': calc.get('familiarity_score', 0)
+                }
+            except (IndexError, TypeError, ValueError) as e:
+                print(f"Error processing store {i}: {e}")
+                calc['overall_score'] = 0.0
+                calc['score_breakdown'] = {
+                    'price_weight': 0,
+                    'distance_weight': 0, 
+                    'rating_weight': 0,
+                    'availability_weight': 0,
+                    'familiarity_weight': 0,
+                    'topsis_score': 0.0,
+                    'error': f'Processing error: {str(e)}'
+                }
+        
+        # Handle invalid stores
+        for calc in store_calculations:
+            if 'overall_score' not in calc:
+                calc['overall_score'] = 0.0
+                calc['score_breakdown'] = {
+                    'price_weight': 0,
+                    'distance_weight': 0, 
+                    'rating_weight': 0,
+                    'availability_weight': 0,
+                    'familiarity_weight': 0,
+                    'topsis_score': 0.0,
+                    'error': 'Invalid data'
+                }
+                calc['raw_values'] = {
+                    'total_cost': calc.get('total_cost', 0),
+                    'distance_km': calc.get('distance_km', 0),
+                    'store_rating': calc.get('store_rating', 0), 
+                    'availability_percentage': calc.get('availability_percentage', 0),
+                    'familiarity_score': calc.get('familiarity_score', 0)
+                }
         
         return store_calculations

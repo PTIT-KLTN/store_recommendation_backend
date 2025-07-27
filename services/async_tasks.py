@@ -54,7 +54,7 @@ def async_update_near_stores(self, user_id, location_data, force_refresh=False):
             }
         )
         
-        print(f"🔍 CELERY DEBUG: Successfully updated near stores for user {user_id}: {len(near_stores)} stores")
+        print(f"CELERY DEBUG: Successfully updated near stores for user {user_id}: {len(near_stores)} stores")
         
         return {
             'user_id': user_id,
@@ -78,11 +78,11 @@ def async_update_near_stores(self, user_id, location_data, force_refresh=False):
                 }
             )
         except Exception as db_error:
-            print(f"🔍 CELERY DEBUG: Failed to update error status in DB: {db_error}")
+            print(f"CELERY DEBUG: Failed to update error status in DB: {db_error}")
         
         # Retry logic
         if self.request.retries < self.max_retries:
-            print(f"🔍 CELERY DEBUG: Retrying async_update_near_stores for user {user_id} (attempt {self.request.retries + 1})")
+            print(f"CELERY DEBUG: Retrying async_update_near_stores for user {user_id} (attempt {self.request.retries + 1})")
             raise self.retry(countdown=60 * (self.request.retries + 1), exc=exc)
         
         # Max retries reached
