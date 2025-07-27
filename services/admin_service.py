@@ -2,73 +2,61 @@ from database.mongodb import MongoDBConnection
 from bson import ObjectId
 from datetime import datetime
 from flask_bcrypt import generate_password_hash
-from models.user import User
-from models.basket import Basket
+from models.admin import Admin
 
 db = MongoDBConnection.get_primary_db()
 
-def get_user_role(user_email):
-    user_data = db.users.find_one({'email': user_email})
-    if not user_data:
+def get_admin_role(user_email):
+    admin_data = db.admins.find_one({'email': user_email})
+    if not admin_data:
         return None, "User not found"
     
-    return user_data.get('role', 'USER'), None
+    return admin_data.get('role', 'ADMIN'), None
 
 def check_super_admin_exists():
     """Check if super admin already exists"""
-    super_admin = db.users.find_one({'role': 'SUPER_ADMIN'})
+    super_admin = db.admins.find_one({'role': 'SUPER_ADMIN'})
     return super_admin is not None
 
-def get_user_role_and_type(user_email):
+def get_admin_role_and_type(admin_email):
     """Get user role and check if super admin"""
-    user_data = db.users.find_one({'email': user_email})
-    if not user_data:
+    admin_data = db.admins.find_one({'email': admin_email})
+    if not admin_data:
         return None, None, "User not found"
     
-    role = user_data.get('role', 'USER')
+    role = admin_data.get('role', 'ADMIN')
     is_super_admin = role == 'SUPER_ADMIN'
     
     return role, is_super_admin, None
 
 def create_admin_account(admin_data, is_super_admin=False):
     # Check if admin already exists
-    existing_admin = db.users.find_one({'email': admin_data['email']})
+    existing_admin = db.admins.find_one({'email': admin_data['email']})
     if existing_admin:
         return None, "Admin with this email already exists"
     
     # Hash password
     hashed_password = generate_password_hash(admin_data['password'])
-    
-    # Create basket for admin
-    basket = Basket(user_id=None)
-    basket_result = db.baskets.insert_one(basket.to_dict())
-    
+
     # Create admin user with appropriate role
     role = 'SUPER_ADMIN' if is_super_admin else 'ADMIN'
-    user = User(
+    admin = Admin(
         email=admin_data['email'], 
         password=hashed_password, 
         fullname=admin_data['fullname'],
         role=role
     )
-    user_dict = user.to_dict()
-    user_dict['basket_id'] = str(basket_result.inserted_id)
-    
-    user_result = db.users.insert_one(user_dict)
-    
-    # Update basket with user_id
-    db.baskets.update_one(
-        {'_id': basket_result.inserted_id},
-        {'$set': {'user_id': str(user_result.inserted_id)}}
-    )
-    
+    admin_dict = admin.to_dict()
+    admin_result = db.admins.insert_one(admin_dict)
+
     # Return admin info (without password)
     admin_info = {
-        'id': str(user_result.inserted_id),
+        'id': str(admin_result.inserted_id),
         'email': admin_data['email'],
         'fullname': admin_data['fullname'],
         'role': role,
-        'created_at': user_dict['created_at']
+        'created_at': admin_dict['created_at'],
+        'updated_at': admin_dict['updated_at'],
     }
     
     return admin_info, None
