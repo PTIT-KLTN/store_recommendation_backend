@@ -20,8 +20,26 @@ def create_app():
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES_HOURS', 24)))
     app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES_DAYS', 90)))
     
+    @app.before_request
+    def before_request():
+        # Add bypass header for all requests
+        pass
+    
+    @app.after_request  
+    def after_request(response):
+        # Multiple ways to bypass ngrok warning
+        response.headers['ngrok-skip-browser-warning'] = 'true'
+        response.headers['ngrok-skip-browser-warning'] = 'any'
+        response.headers.add('ngrok-skip-browser-warning', 'true')
+        return response
+
     CORS(app, 
-         origins=['http://localhost:3000', 'http://127.0.0.1:3000', f'http://{RADMIN_IP}:3000'],
+         origins=[
+            'http://localhost:3000', 
+            'http://127.0.0.1:3000',
+             f'http://{RADMIN_IP}:3000',  
+            'http://markendation.s3-website-ap-southeast-1.amazonaws.com',
+            'https://fe443aab409b.ngrok-free.app'],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
          allow_headers=[
              'Content-Type', 

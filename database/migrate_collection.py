@@ -8,7 +8,9 @@ def create_collections():
         primary_db.create_collection('ingredients')
         primary_db.create_collection('dishes') 
         primary_db.create_collection('users')
+        primary_db.create_collection('admins')
         primary_db.create_collection('baskets')
+        primary_db.create_collection('password_reset_token')
         
     except Exception as e:
         if "already exists" in str(e):
@@ -23,6 +25,7 @@ def create_indexes():
         primary_db.ingredients.create_index('vietnameseName')
         primary_db.dishes.create_index('name')
         primary_db.users.create_index('email', unique=True)
+        primary_db.create_index("expiry", expireAfterSeconds=0)
         
         print("Created indexes")
     except Exception as e:
