@@ -7,6 +7,7 @@ from services.auth_service import process_user, create_user_profile
 from validators.auth_validators import validate_email, validate_password
 from utils.token_utils import create_user_tokens
 from database.mongodb import MongoDBConnection
+from services.forgot_password_service import request_password_reset_service, reset_password_service, verify_reset_token_service
 
 auth_bp = Blueprint('auth', __name__)
 db = MongoDBConnection.get_primary_db()
@@ -198,3 +199,105 @@ def change_password():
         
     except Exception as e:
         return jsonify({'message': f'Failed to change password: {str(e)}'}), 500
+
+
+@auth_bp.route('/forgot-password', methods=['POST'])
+def forgot_password():
+    """Request password reset"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'email' not in data:
+            return jsonify({'message': 'Email is required'}), 400
+        
+        email = data['email']
+        
+        # Gọi service xử lý
+        success, message, error_code = request_password_reset_service(email)
+        
+        if success:
+            return jsonify({
+                'message': message,
+                'success': True
+            }), 200
+        else:
+            return jsonify({
+                'message': message,
+                'success': False,
+                'error': error_code
+            }), 400 if error_code != 'INTERNAL_ERROR' else 500
+        
+    except Exception as e:
+        return jsonify({
+            'message': f'Failed to process forgot password request: {str(e)}',
+            'success': False,
+            'error': 'INTERNAL_ERROR'
+        }), 500
+
+@auth_bp.route('/reset-password', methods=['POST'])
+def reset_password():
+    """Reset password using token"""
+    try:
+        data = request.get_json()
+        
+        if not data or not all(k in data for k in ('token', 'new_password')):
+            return jsonify({'message': 'Token and new password are required'}), 400
+        
+        token = data['token']
+        new_password = data['new_password']
+        
+        # Gọi service xử lý
+        success, message, error_code = reset_password_service(token, new_password)
+        
+        if success:
+            return jsonify({
+                'message': message,
+                'success': True
+            }), 200
+        else:
+            return jsonify({
+                'message': message,
+                'success': False,
+                'error': error_code
+            }), 400 if error_code != 'INTERNAL_ERROR' else 500
+        
+    except Exception as e:
+        return jsonify({
+            'message': f'Failed to reset password: {str(e)}',
+            'success': False,
+            'error': 'INTERNAL_ERROR'
+        }), 500
+
+@auth_bp.route('/verify-reset-token', methods=['POST'])
+def verify_reset_token():
+    """Verify if reset token is valid"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'token' not in data:
+            return jsonify({'message': 'Token is required'}), 400
+        
+        token = data['token']
+        
+        # Gọi service xử lý
+        success, message, email, error_code = verify_reset_token_service(token)
+        
+        if success:
+            return jsonify({
+                'message': message,
+                'valid': True,
+                'email': email
+            }), 200
+        else:
+            return jsonify({
+                'message': message,
+                'valid': False,
+                'error': error_code
+            }), 400 if error_code != 'INTERNAL_ERROR' else 500
+        
+    except Exception as e:
+        return jsonify({
+            'message': f'Failed to verify token: {str(e)}',
+            'valid': False,
+            'error': 'INTERNAL_ERROR'
+        }), 500

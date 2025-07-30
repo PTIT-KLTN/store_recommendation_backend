@@ -47,7 +47,7 @@ class CalculateService:
                                 'vietnamese_name': dish_ingredient.get('vietnamese_name', ''),
                                 'unit': ingredient_unit,
                                 'net_unit_value': net_unit_value,
-                                'total_quantity': total_dish_quantity * net_unit_value
+                                'total_quantity': total_dish_quantity
                             }
         
         return processed_ingredients
@@ -229,8 +229,10 @@ class CalculateService:
                     
                     net_unit_value = best_product.get('net_unit_value', 1)
                     product_unit = best_product.get('unit', '')
-                    actual_quantity_needed = ingredient_quantity_needed / net_unit_value if net_unit_value > 0 else 1
+                    actual_quantity_needed = ingredient_quantity_needed / net_unit_value
                     
+                    # print ("số lượng thật sự cần của ", best_product.get("name"), " = ", ingredient_quantity_needed, " / ", net_unit_value, "=", actual_quantity_needed)
+
                     units_to_buy = max(1, round(actual_quantity_needed, 3))
                     
                     # Calculate total cost
@@ -412,54 +414,25 @@ class CalculateService:
             if np.all(matrix[:, j] == matrix[0, j]):
                 matrix[:, j] = matrix[:, j] + np.random.normal(0, 0.001, matrix.shape[0])
         
-        try:
-            # Debug: Print what topsis returns
-            topsis_result = tp.topsis(matrix.tolist(), weights, signs)
-            print(f"TOPSIS result type: {type(topsis_result)}")
-            print(f"TOPSIS result: {topsis_result}")
-            
-            # Handle different return formats from topsis
-            if isinstance(topsis_result, tuple):
-                # If topsis returns (scores, ranks)
-                scores, ranks = topsis_result
-                print(f"Scores type: {type(scores)}")
-                print(f"Scores: {scores}")
-                
-                # Convert scores to list if it's numpy array
-                if hasattr(scores, 'tolist'):
-                    scores_list = scores.tolist()
-                elif isinstance(scores, (list, tuple)):
-                    scores_list = list(scores)
-                else:
-                    # If scores is a single value, create a list
-                    scores_list = [scores] * len(valid_stores)
-                    
+        # TOPSIS calculation - fixed handling of return value
+        topsis_result = tp.topsis(matrix.tolist(), weights, signs)
+        
+        # Handle the tuple return format: (best_index, scores_array)
+        if isinstance(topsis_result, tuple) and len(topsis_result) == 2:
+            best_index, scores = topsis_result
+            # Extract scores array - should be the second element
+            if hasattr(scores, 'tolist'):
+                scores_list = scores.tolist()
+            elif isinstance(scores, (list, tuple)):
+                scores_list = list(scores)
             else:
-                # If topsis returns only scores (not a tuple)
-                scores = topsis_result
-                print(f"Single scores type: {type(scores)}")
-                
-                if hasattr(scores, 'tolist'):
-                    scores_list = scores.tolist()
-                elif isinstance(scores, (list, tuple)):
-                    scores_list = list(scores)
-                else:
-                    # If it's a single value, distribute equally or handle error
-                    scores_list = [float(scores)] * len(valid_stores)
-            
-            print(f"Final scores_list: {scores_list}")
-            print(f"Length of scores_list: {len(scores_list)}")
-            print(f"Length of valid_stores: {len(valid_stores)}")
-            
-        except Exception as e:
-            print(f"Error in TOPSIS calculation: {e}")
-            # Fallback to simple scoring
-            scores_list = [0.5] * len(valid_stores)  # Default score
+                scores_list = [float(scores)] * len(valid_stores)
+        else:
+            # Fallback if unexpected format
+            scores_list = [0.5] * len(valid_stores)
         
         # Ensure scores_list has the right length
         if len(scores_list) != len(valid_stores):
-            print(f"Warning: scores_list length ({len(scores_list)}) != valid_stores length ({len(valid_stores)})")
-            # Pad with zeros or truncate as needed
             if len(scores_list) < len(valid_stores):
                 scores_list.extend([0.0] * (len(valid_stores) - len(scores_list)))
             else:
@@ -467,38 +440,25 @@ class CalculateService:
         
         # Update store calculations with TOPSIS scores
         for i, calc in enumerate(valid_stores):
-            try:
-                score = max(0.0, min(1.0, float(scores_list[i])))
-                calc['overall_score'] = round(score * 100, 2)
-                
-                calc['score_breakdown'] = {
-                    'price_weight': weights[0],
-                    'distance_weight': weights[1], 
-                    'rating_weight': weights[2],
-                    'availability_weight': weights[3],
-                    'familiarity_weight': weights[4],
-                    'topsis_score': round(score, 4)
-                }
-                
-                calc['raw_values'] = {
-                    'total_cost': calc.get('total_cost', 0),
-                    'distance_km': calc.get('distance_km', 0),
-                    'store_rating': calc.get('store_rating', 0), 
-                    'availability_percentage': calc.get('availability_percentage', 0),
-                    'familiarity_score': calc.get('familiarity_score', 0)
-                }
-            except (IndexError, TypeError, ValueError) as e:
-                print(f"Error processing store {i}: {e}")
-                calc['overall_score'] = 0.0
-                calc['score_breakdown'] = {
-                    'price_weight': 0,
-                    'distance_weight': 0, 
-                    'rating_weight': 0,
-                    'availability_weight': 0,
-                    'familiarity_weight': 0,
-                    'topsis_score': 0.0,
-                    'error': f'Processing error: {str(e)}'
-                }
+            score = max(0.0, min(1.0, float(scores_list[i])))
+            calc['overall_score'] = round(score * 100, 2)
+            
+            calc['score_breakdown'] = {
+                'price_weight': weights[0],
+                'distance_weight': weights[1], 
+                'rating_weight': weights[2],
+                'availability_weight': weights[3],
+                'familiarity_weight': weights[4],
+                'topsis_score': round(score, 4)
+            }
+            
+            calc['raw_values'] = {
+                'total_cost': calc.get('total_cost', 0),
+                'distance_km': calc.get('distance_km', 0),
+                'store_rating': calc.get('store_rating', 0), 
+                'availability_percentage': calc.get('availability_percentage', 0),
+                'familiarity_score': calc.get('familiarity_score', 0)
+            }
         
         # Handle invalid stores
         for calc in store_calculations:

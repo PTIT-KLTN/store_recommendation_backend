@@ -43,6 +43,8 @@ def calculate_basket():
         
         processed_ingredients = caculate_service.process_all_ingredients(ingredients_list, dishes_list)
 
+        # print(processed_ingredients)
+
         if not processed_ingredients:
             return jsonify({'message': 'No valid ingredients', 'store_recommendations': []}), 200
         
