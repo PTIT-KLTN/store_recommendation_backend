@@ -42,6 +42,7 @@ def ping():
     except Exception as e:
         return make_response(f'Connection error: {str(e)}', None, 500, error='SERVER_ERROR')
 
+# note: crawl many stores
 @crawling_bp.route('/crawl/store', methods=['POST'])
 @jwt_required()
 def crawl_store():
@@ -84,44 +85,3 @@ def crawl_store():
     except Exception as e:
         return make_response(f'Error: {str(e)}', None, 500, error='SERVER_ERROR')
 
-@crawling_bp.route('/search', methods=['POST'])
-@jwt_required()
-def search_products():
-    """Search products across chains"""
-    user = get_user_or_401()
-    if not user:
-        return jsonify({'message': 'Invalid token'}), 401
-    
-    data = request.get_json() or {}
-    
-    # Validation
-    query = data.get('query', '').strip()
-    max_results = data.get('maxResults', 20)
-    chain = data.get('chain', 'ALL').upper()
-    
-    if not query or len(query) < 2:
-        return make_response('Query must be at least 2 characters', None, 400, error='VALIDATION_ERROR')
-    
-    if not isinstance(max_results, int) or not (1 <= max_results <= 100):
-        return make_response('Max results must be 1-100', None, 400, error='VALIDATION_ERROR')
-    
-    try:
-        response = rabbitmq_service.send_request('search_products', {
-            'query': query,
-            'maxResults': max_results,
-            'category': data.get('category', ''),
-            'chain': chain
-        }, timeout=30)
-        
-        return make_response(
-            f'Search completed for {chain}', 
-            response, 
-            query=query, 
-            chain=chain, 
-            maxResults=max_results, 
-            requestedBy=user
-        )
-    except TimeoutError:
-        return make_response('Search timeout', None, 504, error='TIMEOUT')
-    except Exception as e:
-        return make_response(f'Error: {str(e)}', None, 500, error='SERVER_ERROR')

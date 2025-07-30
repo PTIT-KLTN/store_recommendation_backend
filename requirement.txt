@@ -31,7 +31,7 @@ jmespath==1.0.1
 kombu==5.5.4
 MarkupSafe==3.0.2
 marshmallow==3.20.2
-numpy==2.3.1
+numpy==2.2.6
 oauthlib==3.3.1
 packaging==25.0
 pandas==2.3.1

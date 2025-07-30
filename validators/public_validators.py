@@ -3,8 +3,6 @@ def validate_pagination_params(page, size):
         raise ValueError("Page number cannot be negative")
     if size <= 0:
         raise ValueError("Page size must be greater than 0")
-    if size > 100:
-        raise ValueError("Page size cannot exceed 100")
     return True
 
 def validate_suggestion_params(query, limit):

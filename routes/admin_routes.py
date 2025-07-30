@@ -3,9 +3,10 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from services.admin_service import (
     check_super_admin_exists, create_admin_account, 
     create_dish, get_dish_by_id, update_dish, delete_dish, get_all_dishes,
-    create_ingredient, get_ingredient_by_id, update_ingredient, delete_ingredient, get_all_ingredients
+    create_ingredient, get_ingredient_by_id, update_ingredient, delete_ingredient, get_all_ingredients,
+    get_all_categories
 )
-from validators.admin_validators import validate_admin_data, validate_dish_data, validate_ingredient_data, validate_object_id, validate_update_data
+from validators.admin_validators import validate_admin_data, validate_dish_data, validate_ingredient_data, validate_object_id, validate_ingredient_update_data, validate_dish_update_data
 from validators.public_validators import validate_pagination_params
 from middleware.admin_middleware import admin_required, super_admin_required
 
@@ -145,7 +146,7 @@ def update_dish_route(dish_id):
         
         update_data = request.get_json()
         
-        is_valid, message = validate_update_data(update_data)
+        is_valid, message = validate_dish_update_data(dish_id, update_data)
         if not is_valid:
             return jsonify({'message': message}), 400
         
@@ -207,10 +208,11 @@ def get_ingredients_route():
         page = int(request.args.get('page', 0))
         size = int(request.args.get('size', 20))
         search = request.args.get('search', '').strip()
+        category = request.args.get('category', None)
         
         validate_pagination_params(page, size)
         
-        result, error = get_all_ingredients(page, size, search if search else None)
+        result, error = get_all_ingredients(page, size, search if search else None, category if category else None)
         if error:
             return jsonify({'message': error}), 500
         
@@ -240,6 +242,8 @@ def get_ingredient_route(ingredient_id):
     except Exception as e:
         return jsonify({'message': f'Error retrieving ingredient: {str(e)}'}), 500
 
+
+
 @admin_bp.route('/ingredients/<ingredient_id>', methods=['PUT'])
 @jwt_required()
 @admin_required
@@ -251,7 +255,7 @@ def update_ingredient_route(ingredient_id):
         
         update_data = request.get_json()
         
-        is_valid, message = validate_update_data(update_data)
+        is_valid, message = validate_ingredient_update_data(ingredient_id, update_data)
         if not is_valid:
             return jsonify({'message': message}), 400
         
@@ -276,10 +280,23 @@ def delete_ingredient_route(ingredient_id):
         
         result, error = delete_ingredient(ingredient_id)
         if error:
-            status_code = 404 if "not found" in error.lower() else 500
-            return jsonify({'message': error}), status_code
+            return jsonify({'message': error}), 404 if "not found" in error.lower() else 400
         
         return jsonify(result), 200
         
     except Exception as e:
         return jsonify({'message': f'Error deleting ingredient: {str(e)}'}), 500
+    
+
+@admin_bp.route('/categories', methods=['GET'])
+@jwt_required()
+@admin_required
+def get_categories_route():
+    """
+    GET /api/v1/admin/categories
+    Trả về danh sách tên các category từ metadata.categories
+    """
+    categories, error = get_all_categories()
+    if error:
+        return jsonify({'message': f'Error retrieving categories: {error}'}), 500
+    return jsonify({'categories': categories}), 200
