@@ -7,7 +7,7 @@ class AdminValidationError(Exception):
 
 class Admin:
     def __init__(self,
-                 email: str,
+                 username: str,
                  password: str,
                  fullname: str,
                  role: str = 'ADMIN',
@@ -17,18 +17,18 @@ class Admin:
                  _id: ObjectId = None):
         
         # Validate bắt buộc
-        if not email:
-            raise AdminValidationError("Email is required")
-        if not password:
-            raise AdminValidationError("Password is required")
+        if not username:
+            raise AdminValidationError("Tên đăng nhập là bắt buộc")
+        # if not password:
+        #     raise AdminValidationError("Mật khẩu là bắt buộc")
         if not fullname:
-            raise AdminValidationError("Fullname is required")
+            raise AdminValidationError("Tên đầy đủ là bắt buộc")
 
         # Field MongoDB
         self._id = _id or ObjectId()
 
         # Các trường chính
-        self.email = email
+        self.username = username
         self.password = password
         self.fullname = fullname
         self.is_enabled = is_enabled
@@ -43,7 +43,7 @@ class Admin:
         """Chuyển Admin thành dict để lưu vào MongoDB."""
         return {
             "_id": self._id,
-            "email": self.email,
+            "username": self.username,
             "password": self.password,
             "fullname": self.fullname,
             "role": self.role, 
@@ -55,7 +55,7 @@ class Admin:
     @classmethod
     def from_dict(cls, data: dict) -> "Admin":
         return cls(
-            email=data.get("email"),
+            username=data.get("username"),
             password=data.get("password"),
             fullname=data.get("fullname"),
             is_enabled=data.get("is_enabled", True),
@@ -70,8 +70,9 @@ class Admin:
     def to_public_dict(self) -> dict:
         return {
             "id": str(self._id),
-            "email": self.email,
+            "username": self.username,
             "fullname": self.fullname,
+            "role": self.role,
             "is_enabled": self.is_enabled,
             "created_at": self.created_at,
             "updated_at": self.updated_at

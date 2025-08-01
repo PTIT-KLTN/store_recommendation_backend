@@ -15,23 +15,23 @@ db = MongoDBConnection.get_primary_db()
 def admin_login():
     try:
         data = request.get_json()
-        if not data or not all(k in data for k in ('email', 'password')):
-            return jsonify({'message': 'Email and password are required'}), 400
+        if not data or not all(k in data for k in ('username', 'password')):
+            return jsonify({'message': 'Username and password are required'}), 400
 
-        if not validate_email(data['email']):
-            return jsonify({'message': 'Invalid email format'}), 400
+        # if not validate_email(data['username']):
+        #     return jsonify({'message': 'Invalid username format'}), 400
 
-        admin = db.admins.find_one({'email': data['email']})
+        admin = db.admins.find_one({'username': data['username']})
         if not admin:
-            return jsonify({'message': 'Invalid email or password'}), 401
+            return jsonify({'message': 'Tên đăng nhập không hợp lệ.'}), 401
 
         if not check_password_hash(admin['password'], data['password']):
-            return jsonify({'message': 'Invalid email or password'}), 401
+            return jsonify({'message': 'Mật khẩu không hợp lệ.'}), 401
 
         if not admin.get('is_enabled', True):
-            return jsonify({'message': 'Admin account is disabled'}), 403
+            return jsonify({'message': 'Tài khoản này đã bị khóa'}), 403
 
-        access_token, refresh_token = create_user_tokens(data['email'], auth_provider='admin')
+        access_token, refresh_token = create_user_tokens(data['username'], auth_provider='admin')
 
         return jsonify({
             'message': 'Admin login successful',
@@ -39,7 +39,7 @@ def admin_login():
             'refresh_token': refresh_token,
             'admin': {
                 'id': str(admin['_id']),
-                'email': admin['email'],
+                'username': admin['username'],
                 'fullname': admin.get('fullname', ''),
                 'role': admin.get('role', 'ADMIN'),
                 'is_enabled': admin.get('is_enabled', True)
@@ -55,7 +55,7 @@ def admin_login():
 def admin_logout():
     try:
         current_admin = get_jwt_identity()
-        db.refresh_tokens.delete_many({'user_email': current_admin})
+        db.refresh_tokens.delete_many({'username': current_admin})
         return jsonify({'message': 'Admin logout successful'}), 200
     except Exception as e:
         return jsonify({'message': f'Admin logout failed: {str(e)}'}), 500
@@ -65,7 +65,7 @@ def admin_logout():
 @jwt_required()
 def change_admin_password():
     try:
-        admin_email = get_jwt_identity()
+        admin_username = get_jwt_identity()
         data = request.get_json() or {}
         current = data.get('current_password')
         new = data.get('new_password')
@@ -75,7 +75,7 @@ def change_admin_password():
             return jsonify({'message': 'Current and new password are required'}), 400
 
         # Gọi service xử lý
-        success, error = change_admin_password_service(admin_email, current, new)
+        success, error = change_admin_password_service(admin_username, current, new)
         if not success:
             return jsonify({'message': error}), 400
 
@@ -104,13 +104,13 @@ def admin_refresh():
             db.refresh_tokens.delete_one({'_id': refresh_token_doc['_id']})
             return jsonify({'message': 'Refresh token expired'}), 401
 
-        admin_email = refresh_token_doc['user_email']
+        admin_username = refresh_token_doc['username']
 
-        admin_doc = db.admins.find_one({'email': admin_email})
+        admin_doc = db.admins.find_one({'username': admin_username})
         if not admin_doc or not admin_doc.get('is_enabled', True):
             return jsonify({'message': 'Admin not found or disabled'}), 401
 
-        new_access_token = create_access_token(identity=admin_email)
+        new_access_token = create_access_token(identity=admin_username)
 
         return jsonify({
             'access_token': new_access_token,

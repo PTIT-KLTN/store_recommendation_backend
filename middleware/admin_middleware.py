@@ -6,11 +6,11 @@ from validators.admin_validators import validate_admin_role, validate_super_admi
 def check_admin_access():
     """Middleware to check admin access"""
     try:
-        current_user_email = get_jwt_identity()
-        if not current_user_email:
+        current_username = get_jwt_identity()
+        if not current_username:
             return False, "Authentication required"
         
-        user_role, error = get_admin_role(current_user_email)
+        user_role, error = get_admin_role(current_username)
         if error:
             return False, error
         
@@ -25,11 +25,11 @@ def check_admin_access():
 def check_super_admin_access():
     """Middleware to check super admin access"""
     try:
-        current_user_email = get_jwt_identity()
-        if not current_user_email:
+        current_username = get_jwt_identity()
+        if not current_username:
             return False, "Authentication required"
         
-        user_role, is_super_admin, error = get_admin_role_and_type(current_user_email)
+        user_role, is_super_admin, error = get_admin_role_and_type(current_username)
         if error:
             return False, error
         

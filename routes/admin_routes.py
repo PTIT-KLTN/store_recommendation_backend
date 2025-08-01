@@ -4,9 +4,9 @@ from services.admin_service import (
     check_super_admin_exists, create_admin_account, 
     create_dish, get_dish_by_id, update_dish, delete_dish, get_all_dishes,
     create_ingredient, get_ingredient_by_id, update_ingredient, delete_ingredient, get_all_ingredients,
-    get_all_categories
+    get_all_categories, toggle_admin_status, update_admin_account, get_all_admins
 )
-from validators.admin_validators import validate_admin_data, validate_dish_data, validate_ingredient_data, validate_object_id, validate_ingredient_update_data, validate_dish_update_data
+from validators.admin_validators import validate_admin_data, validate_dish_data, validate_ingredient_data, validate_object_id, validate_ingredient_update_data, validate_dish_update_data, validate_admin_update_data
 from validators.public_validators import validate_pagination_params
 from middleware.admin_middleware import admin_required, super_admin_required
 
@@ -18,6 +18,7 @@ def create_admin_route():
     """Create admin account"""
     try:
         admin_data = request.get_json()
+        admin_data['password'] = '123456'
         
         is_valid, message = validate_admin_data(admin_data)
         if not is_valid:
@@ -52,8 +53,10 @@ def create_admin_route():
 def create_admin_auth_route():
     """Create admin account - requires super admin authentication"""
     try:
-        current_user_email = get_jwt_identity()
+        current_username = get_jwt_identity()
         admin_data = request.get_json()
+        admin_data['password'] = '123456'
+        print(admin_data)
         
         is_valid, message = validate_admin_data(admin_data)
         if not is_valid:
@@ -67,7 +70,7 @@ def create_admin_auth_route():
         return jsonify({
             'message': 'Admin account created successfully',
             'admin': result,
-            'created_by': current_user_email
+            'created_by': current_username
         }), 201
         
     except Exception as e:
@@ -300,3 +303,75 @@ def get_categories_route():
     if error:
         return jsonify({'message': f'Error retrieving categories: {error}'}), 500
     return jsonify({'categories': categories}), 200
+
+
+# Lấy danh sách admin thường
+@admin_bp.route('/admins', methods=['GET'])
+@jwt_required()
+@super_admin_required
+def list_admin_accounts():
+    try:
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 20))
+        search = request.args.get('search', '').strip()
+
+        result, error = get_all_admins(page, size, search if search else None)
+        if error:
+            return jsonify({'message': error}), 500
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'message': f'Error fetching admins: {str(e)}'}), 500
+
+
+# Cập nhật email (username) và fullname của admin
+@admin_bp.route('/admins/<admin_id>', methods=['PUT'])
+@jwt_required()
+@super_admin_required
+def update_admin_route(admin_id):
+    try:
+        is_valid, message = validate_object_id(admin_id)
+        if not is_valid:
+            return jsonify({'message': message}), 400
+
+        update_data = request.get_json()
+        is_valid, message = validate_admin_update_data(update_data)
+        if not is_valid:
+            return jsonify({'message': message}), 400
+
+        result, error = update_admin_account(admin_id, update_data)
+        if error:
+            status_code = 404 if "not found" in error.lower() else 500
+            return jsonify({'message': error}), status_code
+
+        return jsonify({
+            'message': 'Cập nhật thông tin admin thành công',
+            'admin': result
+        }), 200
+
+    except Exception as e:
+        return jsonify({'message': f'Error updating admin: {str(e)}'}), 500
+
+
+
+# Bật/tắt tài khoản admin
+@admin_bp.route('/admins/<admin_id>/status', methods=['PATCH'])
+@jwt_required()
+@super_admin_required
+def update_admin_status(admin_id):
+    try:
+        is_valid, msg = validate_object_id(admin_id)
+        if not is_valid:
+            return jsonify({'message': msg}), 400
+
+        data = request.get_json()
+        if not data or 'is_enabled' not in data:
+            return jsonify({'message': 'is_enabled is required'}), 400
+
+        result, error = toggle_admin_status(admin_id, data['is_enabled'])
+        if error:
+            print(f"Error toggling admin status: {error}")
+            return jsonify({'message': error}), 404
+
+        return jsonify(result), 200
+    except Exception as e:
+        return jsonify({'message': f'Error updating admin status: {str(e)}'}), 500

@@ -19,19 +19,36 @@ def validate_admin_data(admin_data):
     if not admin_data:
         return False, "No admin data provided"
     
-    required_fields = ['email', 'password', 'fullname']
+    required_fields = ['username', 'password', 'fullname']
     for field in required_fields:
         if not admin_data.get(field):
             return False, f"{field} is required"
     
-    if not validate_email(admin_data['email']):
-        return False, "Invalid email format"
+    # if not validate_email(admin_data['username']):
+    #     return False, "Invalid email format"
     
     is_valid, message = validate_password(admin_data['password'])
     if not is_valid:
         return False, message
     
     return True, "Valid"
+
+def validate_admin_update_data(update_data):
+    if not update_data:
+        return False, "No update data provided"
+    if not isinstance(update_data, dict):
+        return False, "Invalid update data format"
+    
+    allowed_fields = ['username', 'fullname']
+    clean_data = {k: v for k, v in update_data.items() if k in allowed_fields}
+
+    # Fullname nếu có không được để trống
+    if 'fullname' in clean_data:
+        if not clean_data['fullname'].strip():
+            return False, "Fullname is required"
+    
+    return True, "Valid"
+
 
 def validate_dish_data(dish_data):
     if not dish_data:

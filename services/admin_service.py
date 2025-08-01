@@ -1,3 +1,4 @@
+from datetime import datetime
 from database.mongodb import MongoDBConnection
 from bson import ObjectId
 from flask_bcrypt import generate_password_hash
@@ -38,10 +39,10 @@ def translate_vi2en(vi_text: str) -> str:
 db = MongoDBConnection.get_primary_db()
 metadata_db = MongoDBConnection.get_metadata_db()
 
-def get_admin_role(user_email):
-    admin_data = db.admins.find_one({'email': user_email})
+def get_admin_role(username):
+    admin_data = db.admins.find_one({'username': username})
     if not admin_data:
-        return None, "User not found"
+        return None, "Không tìm thấy tài khoản admin"
     
     return admin_data.get('role', 'ADMIN'), None
 
@@ -50,11 +51,11 @@ def check_super_admin_exists():
     super_admin = db.admins.find_one({'role': 'SUPER_ADMIN'})
     return super_admin is not None
 
-def get_admin_role_and_type(admin_email):
+def get_admin_role_and_type(username):
     """Get user role and check if super admin"""
-    admin_data = db.admins.find_one({'email': admin_email})
+    admin_data = db.admins.find_one({'username': username})
     if not admin_data:
-        return None, None, "User not found"
+        return None, None, "Không tìm thấy tài khoản admin"
     
     role = admin_data.get('role', 'ADMIN')
     is_super_admin = role == 'SUPER_ADMIN'
@@ -63,9 +64,9 @@ def get_admin_role_and_type(admin_email):
 
 def create_admin_account(admin_data, is_super_admin=False):
     # Check if admin already exists
-    existing_admin = db.admins.find_one({'email': admin_data['email']})
+    existing_admin = db.admins.find_one({'username': admin_data['username']})
     if existing_admin:
-        return None, "Admin with this email already exists"
+        return None, "Tên đăng nhập admin đã tồn tại"
     
     # Hash password
     hashed_password = generate_password_hash(admin_data['password'])
@@ -73,7 +74,7 @@ def create_admin_account(admin_data, is_super_admin=False):
     # Create admin user with appropriate role
     role = 'SUPER_ADMIN' if is_super_admin else 'ADMIN'
     admin = Admin(
-        email=admin_data['email'], 
+        username=admin_data['username'], 
         password=hashed_password, 
         fullname=admin_data['fullname'],
         role=role
@@ -84,7 +85,7 @@ def create_admin_account(admin_data, is_super_admin=False):
     # Return admin info (without password)
     admin_info = {
         'id': str(admin_result.inserted_id),
-        'email': admin_data['email'],
+        'username': admin_data['username'],
         'fullname': admin_data['fullname'],
         'role': role,
         'created_at': admin_dict['created_at'],
@@ -238,21 +239,21 @@ def delete_ingredient(ingredient_id):
     try:
         ingr = db.ingredients.find_one({'_id': ObjectId(ingredient_id)})
         if not ingr:
-            return None, "Ingredient not found"
+            return None, "Không tìm thấy nguyên liệu"
 
         name = ingr.get('name', '').strip()
         print(f"name: {name}")
         # Kiểm tra dùng trong dish
         if db.dishes.find_one({'ingredients.vietnamese_name': name}):
-            return None, "Ingredient is used in dishes and cannot be deleted"
+            return None, "Nguyên liệu này đang được sử dụng trong món ăn, không thể xóa"
         
         print(db.dishes.find_one({'ingredients.vietnamese_name': name}))
 
         result = db.ingredients.delete_one({'_id': ingr['_id']})
         return (
-            {'message': 'Ingredient deleted successfully', 'ingredient_id': ingredient_id},
+            {'message': 'Nguyên liệu đã được xóa thành công', 'ingredient_id': ingredient_id},
             None
-        ) if result.deleted_count else (None, "Ingredient not found")
+        ) if result.deleted_count else (None, "Không tìm thấy nguyên liệu")
     except Exception as e:
         return None, str(e)
 
@@ -327,3 +328,83 @@ def get_all_categories():
         return names, None
     except Exception as e:
         return None, str(e)
+
+# =========== CRUD for account admin =============
+# Lấy danh sách admin thường (không bao gồm super_admin)
+def get_all_admins(page=0, size=20, search=None):
+    skip = page * size
+    query = {'role': 'ADMIN'}
+    if search:
+        regex = {'$regex': search, '$options': 'i'}
+        query['$or'] = [{'username': regex}, {'fullname': regex}]
+    
+    admins = list(
+        db.admins.find(query)
+        .sort('created_at', -1)
+        .skip(skip)
+        .limit(size)
+    )
+    total = db.admins.count_documents(query)
+    total_pages = (total + size - 1) // size if size > 0 else 0
+
+    # Chuyển sang dạng public_dict (ẩn mật khẩu)
+    from models.admin import Admin
+    for i, a in enumerate(admins):
+        admins[i] = Admin.from_dict(a).to_public_dict()
+
+    return {
+        'admins': admins,
+        'pagination': {
+            'currentPage': page,
+            'pageSize': size,
+            'totalPages': total_pages,
+            'totalElements': total,
+            'hasNext': page < total_pages - 1,
+            'hasPrevious': page > 0
+        }
+    }, None
+
+
+def update_admin_account(admin_id, update_data):
+    try:
+        allowed_fields = ['username', 'fullname']
+        set_data = {k: v for k, v in update_data.items() if k in allowed_fields}
+        if not set_data:
+            return None, "Không có trường nào hợp lệ để cập nhật"
+        
+        set_data['updated_at'] = datetime.utcnow()
+        
+        result = db.admins.update_one(
+            {'_id': ObjectId(admin_id)},
+            {'$set': set_data}
+        )
+        if result.matched_count == 0:
+            return None, "Không tìm thấy tài khoản admin"
+        
+        admin = db.admins.find_one({'_id': ObjectId(admin_id)})
+        return {
+            'id': str(admin['_id']),
+            'username': admin['username'],
+            'fullname': admin['fullname'],
+            'role': admin.get('role'),
+            'is_enabled': admin.get('is_enabled', True),
+            'created_at': admin.get('created_at'),
+            'updated_at': admin.get('updated_at')
+        }, None
+
+    except Exception as e:
+        return None, str(e)
+
+
+# Bật/tắt tài khoản admin
+def toggle_admin_status(admin_id, enable: bool):
+    result = db.admins.update_one(
+        {'_id': ObjectId(admin_id)},
+        {'$set': {'is_enabled': enable, 'updated_at': datetime.utcnow()}}
+    )
+    if result.matched_count == 0:
+        return None, "Admin not found"
+
+    updated = db.admins.find_one({'_id': ObjectId(admin_id)})
+    public = Admin.from_dict(updated).to_public_dict()
+    return public, None
