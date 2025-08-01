@@ -72,7 +72,6 @@ class CalculateService:
         
         return ngrams
 
-
     def calculate_fuzzy_match_score(self, ingredient_name, product_name, product_token_ngrams=None):
         """Enhanced fuzzy matching using token_ngrams for better accuracy"""
         if not ingredient_name or not product_name:
@@ -191,7 +190,7 @@ class CalculateService:
                             best_score = score
                             best_field = product_name
                     
-                    if best_score >= 0.2:  # Threshold
+                    if best_score >= 0.5:  # Threshold
                         ingredient_matches.append({
                             'product': product,
                             'score': best_score,
@@ -242,7 +241,7 @@ class CalculateService:
                     
                     # Get top 5 alternative products with net_unit_value calculation
                     alternatives = []
-                    for i, match in enumerate(matches[1:6]):  # Skip best match, get next 5
+                    for i, match in enumerate(matches[1:6]):  
                         alt_product = match['product']
                         alt_price = alt_product.get('price')
                         
@@ -360,13 +359,13 @@ class CalculateService:
                     if result:
                         store_calculations.append(result)
                 except Exception:
-                    continue  # Skip failed stores
+                    continue  
         
         return store_calculations
 
 
     def calculate_store_scores(self, store_calculations, user_email, db_primary):
-        """Enhanced scoring using TOPSIS method with familiarity consideration"""
+        """Scoring using TOPSIS method with familiarity consideration"""
         if not store_calculations:
             return store_calculations
         
@@ -381,7 +380,6 @@ class CalculateService:
             store_id = str(calc.get('store_id', ''))
             calc['familiarity_score'] = 100 if store_id in favourite_stores else 0
         
-        # Prepare decision matrix for TOPSIS
         decision_matrix = []
         valid_stores = []
         
@@ -400,10 +398,6 @@ class CalculateService:
             decision_matrix.append(row)
             valid_stores.append(calc)
         
-        # Fallback if not enough valid stores
-        if len(decision_matrix) < 2:
-            return self.calculate_store_scores_fallback(store_calculations)
-        
         # TOPSIS calculation
         weights = [0.0872, 0.1499, 0.0487, 0.4572, 0.2596]  # Price, Distance, Rating, Available, Familiar
         signs = [-1, -1, 1, 1, 1]  # Lower is better for price/distance, higher is better for others
@@ -414,13 +408,10 @@ class CalculateService:
             if np.all(matrix[:, j] == matrix[0, j]):
                 matrix[:, j] = matrix[:, j] + np.random.normal(0, 0.001, matrix.shape[0])
         
-        # TOPSIS calculation - fixed handling of return value
         topsis_result = tp.topsis(matrix.tolist(), weights, signs)
         
-        # Handle the tuple return format: (best_index, scores_array)
         if isinstance(topsis_result, tuple) and len(topsis_result) == 2:
             best_index, scores = topsis_result
-            # Extract scores array - should be the second element
             if hasattr(scores, 'tolist'):
                 scores_list = scores.tolist()
             elif isinstance(scores, (list, tuple)):
@@ -428,17 +419,14 @@ class CalculateService:
             else:
                 scores_list = [float(scores)] * len(valid_stores)
         else:
-            # Fallback if unexpected format
             scores_list = [0.5] * len(valid_stores)
         
-        # Ensure scores_list has the right length
         if len(scores_list) != len(valid_stores):
             if len(scores_list) < len(valid_stores):
                 scores_list.extend([0.0] * (len(valid_stores) - len(scores_list)))
             else:
                 scores_list = scores_list[:len(valid_stores)]
         
-        # Update store calculations with TOPSIS scores
         for i, calc in enumerate(valid_stores):
             score = max(0.0, min(1.0, float(scores_list[i])))
             calc['overall_score'] = round(score * 100, 2)
@@ -460,7 +448,6 @@ class CalculateService:
                 'familiarity_score': calc.get('familiarity_score', 0)
             }
         
-        # Handle invalid stores
         for calc in store_calculations:
             if 'overall_score' not in calc:
                 calc['overall_score'] = 0.0

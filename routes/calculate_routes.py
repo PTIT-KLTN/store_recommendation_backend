@@ -28,7 +28,7 @@ def calculate_basket():
         
         saved_baskets = user_data.get('saved_baskets', [])
         if not saved_baskets:
-            return jsonify({'message': 'No baskets found', 'store_recommendations': []}), 200
+            return jsonify({'message': 'Không tìm thấy giỏ hàng!', 'store_recommendations': []}), 400
         
         basket_data = saved_baskets[-1]
         if not basket_data:
@@ -46,12 +46,12 @@ def calculate_basket():
         # print(processed_ingredients)
 
         if not processed_ingredients:
-            return jsonify({'message': 'No valid ingredients', 'store_recommendations': []}), 200
+            return jsonify({'message': 'Lỗi xử lý dữ liệu!', 'store_recommendations': []}), 400
         
         # Get cached stores
         near_stores = user_data.get('near_stores', [])
         if not near_stores:
-            return jsonify({'message': 'No nearby stores. Update location first.', 'store_recommendations': []}), 200
+            return jsonify({'message': 'Vui lòng cập nhật vị trí của bạn trước!', 'store_recommendations': []}), 400
         
         candidate_stores = near_stores[:8]  # Limit to top 8 for performance
         

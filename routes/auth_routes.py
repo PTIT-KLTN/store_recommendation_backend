@@ -19,10 +19,10 @@ def register():
         data = request.get_json()
         
         if not data or not all(k in data for k in ('email', 'password', 'fullname')):
-            return jsonify({'message': 'Email, password and fullname are required'}), 400
+            return jsonify({'message': 'Email, mật khẩu và họ tên là bắt buộc'}), 400
         
         if not validate_email(data['email']):
-            return jsonify({'message': 'Invalid email format'}), 400
+            return jsonify({'message': 'Định dạng email không hợp lệ'}), 400
         
         result = process_user(data, auth_provider='local')
         return jsonify(result), 201
@@ -37,17 +37,17 @@ def login():
         data = request.get_json()
         
         if not data or not all(k in data for k in ('email', 'password')):
-            return jsonify({'message': 'Email and password are required'}), 400
+            return jsonify({'message': 'Email và mật khẩu là bắt buộc'}), 400
                 
         user_data = db.users.find_one({'email': data['email']})
         if not user_data:
-            return jsonify({'message': 'Invalid email or password'}), 401
+            return jsonify({'message': 'Email hoặc mật khẩu không chính xác'}), 401
         
         if not check_password_hash(user_data['password'], data['password']):
-            return jsonify({'message': 'Invalid email or password'}), 401
+            return jsonify({'message': 'Email hoặc mật khẩu không chính xác'}), 401
         
         if not user_data.get('is_enabled', True):
-            return jsonify({'message': 'Account is disabled'}), 401
+            return jsonify({'message': 'Tài khoản đã bị vô hiệu hóa'}), 401
 
         access_token, refresh_token = create_user_tokens(data['email'], 'local')
         user_profile = create_user_profile(user_data, 'local')
@@ -56,31 +56,31 @@ def login():
             'access_token': access_token,
             'refresh_token': refresh_token,
             'user': user_profile,
-            'message': 'Login successful'
+            'message': 'Đăng nhập thành công'
         }), 200
         
     except Exception as e:
-        return jsonify({'message': f'Login failed: {str(e)}'}), 500
+        return jsonify({'message': f'Đăng nhập thất bại: {str(e)}'}), 500
 
 @auth_bp.route('/refresh', methods=['POST'])
 def refresh():
     """Refresh access token using refresh token"""
     try:
         data = request.get_json()
-        
+    
         if not data or 'refresh_token' not in data:
-            return jsonify({'message': 'Refresh token is required'}), 400
+            return jsonify({'message': 'Refresh token là bắt buộc'}), 400
                 
         refresh_token_doc = db.refresh_tokens.find_one({
             'refresh_token': data['refresh_token']
         })
         
         if not refresh_token_doc:
-            return jsonify({'message': 'Invalid refresh token'}), 401
+            return jsonify({'message': 'Refresh token không hợp lệ'}), 401
         
         if refresh_token_doc['expiration_time'] < datetime.utcnow():
             db.refresh_tokens.delete_one({'_id': refresh_token_doc['_id']})
-            return jsonify({'message': 'Refresh token expired'}), 401
+            return jsonify({'message': 'Refresh token đã hết hạn'}), 401
         
         user_email = refresh_token_doc['user_email']
         
@@ -93,11 +93,11 @@ def refresh():
         return jsonify({
             'access_token': access_token,
             'refresh_token': data['refresh_token'],
-            'message': 'Token refreshed successfully'
+            'message': 'Làm mới token thành công'
         }), 200
         
     except Exception as e:
-        return jsonify({'message': f'Token refresh failed: {str(e)}'}), 500
+        return jsonify({'message': f'Làm mới token thất bại: {str(e)}'}), 500
 
 @auth_bp.route('/logout', methods=['POST'])
 @jwt_required()
@@ -106,9 +106,9 @@ def logout():
     try:
         current_user = get_jwt_identity()        
         db.refresh_tokens.delete_many({'user_email': current_user})
-        return jsonify({'message': 'Logout successful'}), 200
+        return jsonify({'message': 'Đăng xuất thành công'}), 200
     except Exception as e:
-        return jsonify({'message': f'Logout failed: {str(e)}'}), 500
+        return jsonify({'message': f'Đăng xuất thất bại: {str(e)}'}), 500
 
 @auth_bp.route('/google/callback-frontend', methods=['POST'])
 def google_callback_frontend():
@@ -118,21 +118,15 @@ def google_callback_frontend():
         
         if not data or 'code' not in data:
             return jsonify({
-                'message': 'Authorization code is required',
+                'message': 'Mã xác thực là bắt buộc',
                 'error': 'MISSING_AUTH_CODE'
             }), 400
         
         authorization_code = data['code']
         
-        if not google_oauth_service.client_id:
-            return jsonify({
-                'message': 'Google Client ID not configured',
-                'error': 'MISSING_CLIENT_ID'
-            }), 500
-            
         if not google_oauth_service.client_secret:
             return jsonify({
-                'message': 'Google Client Secret not configured', 
+                'message': 'Google Client Secret chưa được cấu hình', 
                 'error': 'MISSING_CLIENT_SECRET'
             }), 500
         
@@ -157,7 +151,7 @@ def google_callback_frontend():
         
     except Exception as e:
         return jsonify({
-            'message': f'Google callback failed: {str(e)}',
+            'message': f'Đăng nhập Google thất bại: {str(e)}',
             'error': 'GOOGLE_CALLBACK_ERROR'
         }), 500
     
@@ -170,7 +164,7 @@ def change_password():
         data = request.get_json()
         
         if not data or not all(k in data for k in ('current_password', 'new_password')):
-            return jsonify({'message': 'Current password and new password are required'}), 400
+            return jsonify({'message': 'Mật khẩu hiện tại và mật khẩu mới là bắt buộc'}), 400
         
         is_valid, message = validate_password(data['new_password'])
         if not is_valid:
@@ -178,13 +172,13 @@ def change_password():
         
         user_doc = db.users.find_one({'email': current_user_email})
         if not user_doc:
-            return jsonify({'message': 'User not found'}), 404
-        
+            return jsonify({'message': 'Không tìm thấy người dùng'}), 404
+            
         if not user_doc.get('password'):
-            return jsonify({'message': 'Cannot change password for Google account'}), 400
-        
+            return jsonify({'message': 'Không thể thay đổi mật khẩu cho tài khoản Google'}), 400
+            
         if not check_password_hash(user_doc['password'], data['current_password']):
-            return jsonify({'message': 'Current password is incorrect'}), 401
+            return jsonify({'message': 'Mật khẩu hiện tại không chính xác'}), 401
         
         new_hashed_password = generate_password_hash(data['new_password']).decode('utf-8')
         
@@ -195,10 +189,10 @@ def change_password():
         
         db.refresh_tokens.delete_many({'user_email': current_user_email})
         
-        return jsonify({'message': 'Password changed successfully'}), 200
+        return jsonify({'message': 'Thay đổi mật khẩu thành công'}), 200
         
     except Exception as e:
-        return jsonify({'message': f'Failed to change password: {str(e)}'}), 500
+        return jsonify({'message': f'Thay đổi mật khẩu thất bại: {str(e)}'}), 500
 
 
 @auth_bp.route('/forgot-password', methods=['POST'])
@@ -208,7 +202,7 @@ def forgot_password():
         data = request.get_json()
         
         if not data or 'email' not in data:
-            return jsonify({'message': 'Email is required'}), 400
+            return jsonify({'message': 'Email là bắt buộc'}), 400
         
         email = data['email']
         
@@ -216,20 +210,13 @@ def forgot_password():
         success, message, error_code = request_password_reset_service(email)
         
         if success:
-            return jsonify({
-                'message': message,
-                'success': True
-            }), 200
+            return jsonify({'message': message, 'success': True}), 200
         else:
-            return jsonify({
-                'message': message,
-                'success': False,
-                'error': error_code
-            }), 400 if error_code != 'INTERNAL_ERROR' else 500
+            return jsonify({'message': message, 'success': False, 'error': error_code}), 400 if error_code != 'INTERNAL_ERROR' else 500
         
     except Exception as e:
         return jsonify({
-            'message': f'Failed to process forgot password request: {str(e)}',
+            'message': f'Yêu cầu khôi phục mật khẩu thất bại: {str(e)}',
             'success': False,
             'error': 'INTERNAL_ERROR'
         }), 500
@@ -241,7 +228,7 @@ def reset_password():
         data = request.get_json()
         
         if not data or not all(k in data for k in ('token', 'new_password')):
-            return jsonify({'message': 'Token and new password are required'}), 400
+            return jsonify({'message': 'Token và mật khẩu mới là bắt buộc'}), 400
         
         token = data['token']
         new_password = data['new_password']
@@ -250,20 +237,13 @@ def reset_password():
         success, message, error_code = reset_password_service(token, new_password)
         
         if success:
-            return jsonify({
-                'message': message,
-                'success': True
-            }), 200
+            return jsonify({'message': message, 'success': True}), 200
         else:
-            return jsonify({
-                'message': message,
-                'success': False,
-                'error': error_code
-            }), 400 if error_code != 'INTERNAL_ERROR' else 500
+            return jsonify({'message': message, 'success': False, 'error': error_code}), 400 if error_code != 'INTERNAL_ERROR' else 500
         
     except Exception as e:
         return jsonify({
-            'message': f'Failed to reset password: {str(e)}',
+            'message': f'Đặt lại mật khẩu thất bại: {str(e)}',
             'success': False,
             'error': 'INTERNAL_ERROR'
         }), 500
@@ -275,7 +255,7 @@ def verify_reset_token():
         data = request.get_json()
         
         if not data or 'token' not in data:
-            return jsonify({'message': 'Token is required'}), 400
+            return jsonify({'message': 'Token là bắt buộc'}), 400
         
         token = data['token']
         
@@ -283,21 +263,9 @@ def verify_reset_token():
         success, message, email, error_code = verify_reset_token_service(token)
         
         if success:
-            return jsonify({
-                'message': message,
-                'valid': True,
-                'email': email
-            }), 200
+            return jsonify({'message': message,'valid': True, 'email': email }), 200
         else:
-            return jsonify({
-                'message': message,
-                'valid': False,
-                'error': error_code
-            }), 400 if error_code != 'INTERNAL_ERROR' else 500
+            return jsonify({ 'message': message, 'valid': False, 'error': error_code }), 400 if error_code != 'INTERNAL_ERROR' else 500
         
     except Exception as e:
-        return jsonify({
-            'message': f'Failed to verify token: {str(e)}',
-            'valid': False,
-            'error': 'INTERNAL_ERROR'
-        }), 500
+        return jsonify({ 'message': f'Xác thực token thất bại: {str(e)}', 'valid': False, 'error': 'INTERNAL_ERROR' }), 500
