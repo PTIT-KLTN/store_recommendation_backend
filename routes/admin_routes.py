@@ -375,3 +375,4 @@ def update_admin_status(admin_id):
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'message': f'Error updating admin status: {str(e)}'}), 500
+    

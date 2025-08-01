@@ -55,7 +55,7 @@ def create_app():
     from routes.calculate_routes import calculate_bp
     from routes.admin_routes import admin_bp
     from routes.store_routes import store_bp
-    # from routes.crawling_routes import crawling_bp
+    from routes.crawling_routes import crawling_bp
     from routes.admin_auth_routes import admin_auth_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
@@ -67,7 +67,7 @@ def create_app():
     app.register_blueprint(calculate_bp, url_prefix='/api/v1/calculate')
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
     app.register_blueprint(store_bp, url_prefix='/api/v1/stores')
-    # app.register_blueprint(crawling_bp, url_prefix='/api/v1/crawling')
+    app.register_blueprint(crawling_bp, url_prefix='/api/v1/crawling')
 
         
     @app.route('/api/v1/test', methods=['GET'])
