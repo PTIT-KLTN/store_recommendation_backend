@@ -7,12 +7,11 @@ metadata_db = MongoDBConnection.get_metadata_db()
 primary_db = MongoDBConnection.get_primary_db()
 
 def get_all_stores_data(page, size, pattern, store_name, chain, store_location):
-    """Lấy danh sách stores từ metadata_db với pagination và filters"""
+    """Lấy danh sách stores từ metadata_db"""
     skip = page * size
     
     query_conditions = []
-    
-    # Pattern search across multiple fields
+
     if pattern:
         pattern_regex = {'$regex': pattern, '$options': 'i'}
         query_conditions.append({
@@ -23,23 +22,15 @@ def get_all_stores_data(page, size, pattern, store_name, chain, store_location):
             ]
         })
     
-    # Specific field filters
     if store_name:
-        query_conditions.append({
-            'store_name': {'$regex': store_name, '$options': 'i'}
-        })
+        query_conditions.append({ 'store_name': {'$regex': store_name, '$options': 'i'} })
     
     if chain:
-        query_conditions.append({
-            'chain': {'$regex': f'^{chain}$', '$options': 'i'}
-        })
+        query_conditions.append({ 'chain': {'$regex': f'^{chain}$', '$options': 'i'} })
     
     if store_location:
-        query_conditions.append({
-            'store_location': {'$regex': store_location, '$options': 'i'}
-        })
+        query_conditions.append({ 'store_location': {'$regex': store_location, '$options': 'i'} })
     
-    # Build final query
     if query_conditions:
         if len(query_conditions) == 1:
             query = query_conditions[0]
@@ -48,7 +39,6 @@ def get_all_stores_data(page, size, pattern, store_name, chain, store_location):
     else:
         query = {}
     
-    # Execute query with pagination
     stores = list(
         metadata_db.stores.find(query)
         .sort([('store_name', 1), ('chain', 1)])
@@ -90,13 +80,8 @@ def get_all_stores_data(page, size, pattern, store_name, chain, store_location):
 def get_store_by_id_data(store_id):
     """Lấy chi tiết store theo store_id"""
     try:
-        # Try different store_id formats (string, int)
-        store = None
-        
-        # Try as string first
         store = metadata_db.stores.find_one({'store_id': store_id})
-        
-        # Try as integer if string search failed
+
         if not store:
             try:
                 store_id_int = int(store_id)
@@ -104,13 +89,12 @@ def get_store_by_id_data(store_id):
             except ValueError:
                 pass
         
-        # Try as ObjectId if both failed
         if not store:
             try:
                 store = metadata_db.stores.find_one({'_id': ObjectId(store_id)})
             except:
                 pass
-        
+
         if not store:
             return None, "Store not found"
         

@@ -68,7 +68,6 @@ def create_admin_account(admin_data, is_super_admin=False):
     if existing_admin:
         return None, "Tên đăng nhập admin đã tồn tại"
     
-    # Hash password
     hashed_password = generate_password_hash(admin_data['password'])
 
     # Create admin user with appropriate role
@@ -82,7 +81,6 @@ def create_admin_account(admin_data, is_super_admin=False):
     admin_dict = admin.to_dict()
     admin_result = db.admins.insert_one(admin_dict)
 
-    # Return admin info (without password)
     admin_info = {
         'id': str(admin_result.inserted_id),
         'username': admin_data['username'],

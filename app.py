@@ -11,6 +11,7 @@ load_dotenv()
 RADMIN_IP = os.getenv('RADMIN_IP')
 RADMIN_NETWORK_NAME = os.getenv('RADMIN_NETWORK_NAME')
 FLASK_PORT = os.getenv('FLASK_PORT')
+NGROK_URL = os.getenv('NGROK_URL')
 
 def create_app():
     app = Flask(__name__)
@@ -19,18 +20,20 @@ def create_app():
     app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
     app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=int(os.getenv('JWT_ACCESS_TOKEN_EXPIRES_HOURS', 24)))
     app.config['JWT_REFRESH_TOKEN_EXPIRES'] = timedelta(days=int(os.getenv('JWT_REFRESH_TOKEN_EXPIRES_DAYS', 90)))
-
+    
     CORS(app, 
          origins=[
             'http://localhost:3000', 
             'http://127.0.0.1:3000',
-             f'http://{RADMIN_IP}:3000',  
-            'http://markendation.s3-website-ap-southeast-1.amazonaws.com'
+            f'http://{RADMIN_IP}:3000',  
+            'http://markendation.s3-website-ap-southeast-1.amazonaws.com',
+            f'{NGROK_URL}'
         ],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
          allow_headers=[
              'Content-Type', 
              'Authorization', 
+             'ngrok-skip-browser-warning', 
              'Access-Control-Allow-Credentials',
              'Access-Control-Allow-Origin',
              'Access-Control-Allow-Headers',
@@ -55,7 +58,7 @@ def create_app():
     from routes.calculate_routes import calculate_bp
     from routes.admin_routes import admin_bp
     from routes.store_routes import store_bp
-    # from routes.crawling_routes import crawling_bp
+    from routes.crawling_routes import crawling_bp
     from routes.admin_auth_routes import admin_auth_bp
     
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
@@ -67,7 +70,7 @@ def create_app():
     app.register_blueprint(calculate_bp, url_prefix='/api/v1/calculate')
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
     app.register_blueprint(store_bp, url_prefix='/api/v1/stores')
-    # app.register_blueprint(crawling_bp, url_prefix='/api/v1/crawling')
+    app.register_blueprint(crawling_bp, url_prefix='/api/v1/crawling')
 
         
     @app.route('/api/v1/test', methods=['GET'])
@@ -82,9 +85,13 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    port = int(os.environ.get('PORT', 5000)) 
+    # celery_app.start()
     print(f"Flask API running on Radmin network: {RADMIN_NETWORK_NAME}")
     print(f"Access URL: http://{RADMIN_IP}:{FLASK_PORT}")
     print(f"Test endpoint: http://{RADMIN_IP}:{FLASK_PORT}/api/v1/test")
     
+<<<<<<< Updated upstream
     app.run(debug=True, host='0.0.0.0', port=port)
+=======
+    app.run(debug=True, host='0.0.0.0', port=FLASK_PORT, threaded=True, use_reloader=True)
+>>>>>>> Stashed changes
