@@ -58,6 +58,8 @@ def crawl_store():
 
     if not store_id:
         return make_response('storeId required', None, 400, error='VALIDATION_ERROR')
+    
+    
 
     # Mời tham số region đầy đủ
     payload = {
