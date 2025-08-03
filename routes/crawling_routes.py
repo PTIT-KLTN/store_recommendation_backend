@@ -1,90 +1,47 @@
+# crawling_routes.py
 import os
-from celery import Celery
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from services.rabbitmq_service import rabbitmq_service
 from datetime import datetime
 from middleware.admin_middleware import admin_required
+from services.crawler_celery import celery_crawler
 
 crawling_bp = Blueprint('crawling', __name__)
 
-def get_user_or_401():
-    """Get current user"""
-    user = get_jwt_identity()
-    if not user:
-        return None
-    return user
-
-def make_response(message, data=None, status=200, **metadata):
-    """Create consistent responses"""
-    response = {
-        'message': message,
+def make_response(msg, data=None, status=200, **meta):
+    return jsonify({
+        'message': msg,
         'data': data,
-        'metadata': {
-            'timestamp': datetime.utcnow().isoformat(),
-            **metadata
-        }
-    }
-    return jsonify(response), status
+        'meta': { 'timestamp': datetime.utcnow().isoformat(), **meta }
+    }), status
 
 @crawling_bp.route('/ping', methods=['GET'])
 @jwt_required()
 @admin_required
 def ping():
-    """Test crawling service"""
-    current_user_email = get_jwt_identity()
-    if not current_user_email:
-        return jsonify({'message': 'Invalid token'}), 401
-    
+    user = get_jwt_identity()
     try:
-        response = rabbitmq_service.send_request('ping', timeout=10)
-        return make_response('Crawling service available', response, requestedBy=current_user_email)
-    except TimeoutError:
-        return make_response('Service timeout', None, 503, error='TIMEOUT')
+        workers = celery_crawler.control.ping(timeout=10)
+        return make_response('pong', {'workers': workers}, 200, requestedBy=user)
     except Exception as e:
-        return make_response(f'Connection error: {str(e)}', None, 500, error='SERVER_ERROR')
+        return make_response('Crawling service unavailable', None, 503, error=str(e))
 
-# note: crawl many stores
 @crawling_bp.route('/crawl/store', methods=['POST'])
 @jwt_required()
 def crawl_store():
-    user = get_user_or_401()
-    if not user:
-        return jsonify({'message': 'Invalid token'}), 401
+    user = get_jwt_identity()
+    payload = request.get_json(force=True)
+    # Expect keys: chain (BHX/WM), storeId, optional provinceId, districtId, wardId, onlyOneProduct
+    if 'storeId' not in payload or 'chain' not in payload:
+        return make_response('chain and storeId required', None, 400, error='VALIDATION_ERROR')
 
-    data = request.get_json() or {}
-    store_id = data.get('storeId')
-    chain    = data.get('chain', 'BHX').upper()
-
-    if not store_id:
-        return make_response('storeId required', None, 400, error='VALIDATION_ERROR')
-    
-    
-
-    # Mời tham số region đầy đủ
-    payload = {
-        'chain': chain,
-        'storeId': store_id,
-        'provinceId': data.get('provinceId', 3),
-        'districtId': data.get('districtId', 0),
-        'wardId':     data.get('wardId', 0),
-        'onlyOneProduct': data.get('onlyOneProduct', False),
-    }
-
-    # Gửi request qua RabbitMQService, chờ kết quả hoặc timeout
     try:
-        timeout = 60 if payload['onlyOneProduct'] else 300
-        result = rabbitmq_service.send_request('crawl_store', payload, timeout=timeout)
-        return make_response(
-            f'{chain} store crawling completed',
-            result,
-            storeId=store_id,
-            chain=chain,
-            requestedBy=user
-        )
-    except TimeoutError:
-        return make_response('Crawling timeout', None, 504, error='TIMEOUT')
+        task = celery_crawler.send_task('crawl_tasks.crawl_store', args=[payload])
+        # wait for result (optional)
+        timeout = 60 if payload.get('onlyOneProduct') else 300
+        result = task.get(timeout=timeout)
+        return make_response('crawl completed', result, 200, requestedBy=user)
+    except celery_crawler.exceptions.TimeoutError:
+        return make_response('crawl timeout', None, 504, error='TIMEOUT')
     except Exception as e:
-        return make_response(f'Error: {str(e)}', None, 500, error='SERVER_ERROR')
-
-
+        return make_response('crawl error', None, 500, error=str(e))
