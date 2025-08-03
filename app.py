@@ -60,7 +60,9 @@ def create_app():
     from routes.store_routes import store_bp
     from routes.crawling_routes import crawling_bp
     from routes.admin_auth_routes import admin_auth_bp
-    
+    from routes.products_routes import products_bp
+
+    app.register_blueprint(products_bp, url_prefix='/api/v1/products')
     app.register_blueprint(auth_bp, url_prefix='/api/v1/auth')
     app.register_blueprint(public_bp, url_prefix='/api/v1/public')
     app.register_blueprint(user_bp, url_prefix='/api/v1/user')
