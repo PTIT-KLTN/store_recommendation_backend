@@ -45,6 +45,9 @@ class RabbitMQService:
             )
             consumer_thread.start()
             
+            # SIMPLE WARMUP: Just wait a bit
+            time.sleep(0.5)  # 500ms warmup
+            
             print(f"✅ RabbitMQ connected: {self.request_queue} → {self.response_queue}")
             
         except Exception as e:
@@ -55,18 +58,56 @@ class RabbitMQService:
         """Handle response from crawling service"""
         try:
             response = json.loads(body)
-            correlation_id = response.get('correlationId')
+            action = response.get('action')
             
-            if correlation_id in self.response_futures:
-                future = self.response_futures.pop(correlation_id)
-                future['result'] = response
-                future['event'].set()
+            if action == 'task_status_update':
+                # Handle status update event
+                self.handle_status_event(response)
+            else:
+                # Handle normal correlation_id response
+                correlation_id = response.get('correlationId')
+                if correlation_id in self.response_futures:
+                    future = self.response_futures.pop(correlation_id)
+                    future['result'] = response
+                    future['event'].set()
             
             ch.basic_ack(delivery_tag=method.delivery_tag)
             
         except Exception as e:
             print(f"❌ Error handling response: {e}")
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+    
+    def handle_status_event(self, event):
+        """Handle task status update event"""
+        try:
+            from database.mongodb import MongoDBConnection
+            
+            db = MongoDBConnection.get_primary_db()
+            task_id = event.get('task_id')
+            status = event.get('status')
+            
+            update_data = {
+                'status': status,
+                'updated_at': datetime.utcnow()
+            }
+            
+            if 'result' in event:
+                update_data['result'] = event['result']
+            if 'error' in event:
+                update_data['error'] = event['error']
+            
+            result = db.crawling_tasks.update_one(
+                {'task_id': task_id},
+                {'$set': update_data}
+            )
+            
+            if result.matched_count > 0:
+                print(f"✅ Task {task_id} status updated to {status}")
+            else:
+                print(f"⚠️ Task {task_id} not found for status update")
+            
+        except Exception as e:
+            print(f"❌ Failed to handle status event: {e}")
     
     def send_request(self, action, data=None, timeout=30):
         """Send request to crawling service"""
@@ -104,6 +145,33 @@ class RabbitMQService:
                 
         except Exception as e:
             self.response_futures.pop(correlation_id, None)
+            raise e
+    
+    def send_async_request(self, action, data=None):
+        """Send async request (fire and forget)"""
+        correlation_id = str(uuid.uuid4())
+        
+        message = {
+            'correlationId': correlation_id,
+            'timestamp': datetime.utcnow().isoformat(),
+            'action': action,
+            **(data or {})
+        }
+        
+        try:
+            # Send message without waiting for response
+            self.channel.basic_publish(
+                exchange='',
+                routing_key=self.request_queue,
+                body=json.dumps(message, ensure_ascii=False),
+                properties=pika.BasicProperties(delivery_mode=2)
+            )
+            
+            print(f"📤 Async request sent: {action} (ID: {correlation_id})")
+            return correlation_id
+            
+        except Exception as e:
+            print(f"❌ Failed to send async request: {e}")
             raise e
 
 # Global instance
