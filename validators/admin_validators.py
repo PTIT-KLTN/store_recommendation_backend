@@ -19,13 +19,13 @@ def validate_admin_data(admin_data):
     if not admin_data:
         return False, "No admin data provided"
     
-    required_fields = ['username', 'password', 'fullname']
+    required_fields = ['email', 'password', 'fullname']
     for field in required_fields:
         if not admin_data.get(field):
             return False, f"{field} is required"
     
-    # if not validate_email(admin_data['username']):
-    #     return False, "Invalid email format"
+    if not validate_email(admin_data['email']):
+        return False, "Invalid email format"
     
     is_valid, message = validate_password(admin_data['password'])
     if not is_valid:
@@ -39,7 +39,7 @@ def validate_admin_update_data(update_data):
     if not isinstance(update_data, dict):
         return False, "Invalid update data format"
     
-    allowed_fields = ['username', 'fullname']
+    allowed_fields = ['email', 'fullname']
     clean_data = {k: v for k, v in update_data.items() if k in allowed_fields}
 
     # Fullname nếu có không được để trống
@@ -153,4 +153,19 @@ def validate_ingredient_update_data(ingredient_id: str, update_data: dict):
     if existing and str(existing['_id']) != ingredient_id:
         return False, f"Ingredient with name '{name}' already exists"
     
+    return True, "Valid"
+
+def validate_forgot_password_data(data):
+    if not data or 'email' not in data:
+        return False, "Email is required"
+    if not validate_email(data['email']):
+        return False, "Invalid email format"
+    return True, "Valid"
+
+def validate_reset_password_data(data):
+    if not data or 'token' not in data or 'new_password' not in data:
+        return False, "Token and new password are required"
+    is_valid, msg = validate_password(data['new_password'])
+    if not is_valid:
+        return False, msg
     return True, "Valid"

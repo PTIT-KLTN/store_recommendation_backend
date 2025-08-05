@@ -5,12 +5,12 @@ from datetime import datetime
 
 _db = MongoDBConnection.get_primary_db()
 
-def change_admin_password_service(username: str, current_password: str, new_password: str):
+def change_admin_password_service(email: str, current_password: str, new_password: str):
     # if not validate_email(email):
     #     return None, "Invalid email format"
 
     # 2. Lấy record admin
-    admin = _db.admins.find_one({'username': username})
+    admin = _db.admins.find_one({'email': email})
     if not admin:
         return None, "Tên đăng nhập không hợp lệ"
 
@@ -30,7 +30,7 @@ def change_admin_password_service(username: str, current_password: str, new_pass
     # 6. Hash và update
     new_hashed = generate_password_hash(new_password).decode('utf-8')
     _db.admins.update_one(
-        {'username': username},
+        {'email': email},
         {'$set': {
             'password': new_hashed,
             'updated_at': datetime.utcnow()
@@ -38,6 +38,6 @@ def change_admin_password_service(username: str, current_password: str, new_pass
     )
 
     # 7. Xóa refresh tokens
-    _db.refresh_tokens.delete_many({'username': username})
+    _db.refresh_tokens.delete_many({'email': email})
 
     return True, None

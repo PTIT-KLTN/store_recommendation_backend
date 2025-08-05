@@ -7,9 +7,9 @@ class AdminValidationError(Exception):
 
 class Admin:
     def __init__(self,
-                 username: str,
                  password: str,
                  fullname: str,
+                 email: str,
                  role: str = 'ADMIN',
                  is_enabled: bool = True,
                  created_at: datetime = None,
@@ -17,10 +17,8 @@ class Admin:
                  _id: ObjectId = None):
         
         # Validate bắt buộc
-        if not username:
-            raise AdminValidationError("Tên đăng nhập là bắt buộc")
-        # if not password:
-        #     raise AdminValidationError("Mật khẩu là bắt buộc")
+        if not email:
+            raise AdminValidationError("Email is required")
         if not fullname:
             raise AdminValidationError("Tên đầy đủ là bắt buộc")
 
@@ -28,7 +26,7 @@ class Admin:
         self._id = _id or ObjectId()
 
         # Các trường chính
-        self.username = username
+        self.email = email
         self.password = password
         self.fullname = fullname
         self.is_enabled = is_enabled
@@ -43,7 +41,7 @@ class Admin:
         """Chuyển Admin thành dict để lưu vào MongoDB."""
         return {
             "_id": self._id,
-            "username": self.username,
+            "email": self.email,
             "password": self.password,
             "fullname": self.fullname,
             "role": self.role, 
@@ -55,7 +53,7 @@ class Admin:
     @classmethod
     def from_dict(cls, data: dict) -> "Admin":
         return cls(
-            username=data.get("username"),
+            email=data.get("email"),
             password=data.get("password"),
             fullname=data.get("fullname"),
             is_enabled=data.get("is_enabled", True),
@@ -70,7 +68,7 @@ class Admin:
     def to_public_dict(self) -> dict:
         return {
             "id": str(self._id),
-            "username": self.username,
+            "email": self.email,
             "fullname": self.fullname,
             "role": self.role,
             "is_enabled": self.is_enabled,
