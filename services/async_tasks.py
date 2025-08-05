@@ -28,7 +28,7 @@ celery_app.conf.update(
     beat_schedule={
         'cleanup-expired-tokens': {
             'task': 'services.async_tasks.async_cleanup_expired_tokens',
-            # 'schedule': crontab(day_of_week=1, hour=7, minute=30) # Chạy vào thứ 2 lúc 7:30 AM
+            # 'schedule': crontab(day_of_weke=1, hour=7, minute=30) # Chạy vào thứ 2 lúc 7:30 AM
             'schedule': 60.0,  # chạy mỗi 60 giây (để test)
         },
     },

@@ -11,7 +11,7 @@ CATEGORY_COLLECTIONS = {
     'Cakes': 'cakes',
     'Candies': 'candies',
     'Cereals & Grains': 'cereals_&_grains',
-    'Cold Cuts: Sausages & Ham': 'cold_cuts_sausages_&_ham',
+    'Cold Cuts: Sausages & Ham': 'cold_cuts:_sausages_&_ham',
     'Dried Fruits': 'dried_fruits',
     'Fresh Fruits': 'fresh_fruits',
     'Fresh Meat': 'fresh_meat',
@@ -29,13 +29,12 @@ CATEGORY_COLLECTIONS = {
 def get_store_products_data(store_id, page=0, size=50, category=None, search=None, min_price=None, max_price=None):
     """Lấy tất cả sản phẩm của store từ các collection categories"""
     try:
-        # Convert store_id to different formats for search
         store_ids = [store_id, str(store_id)]
         try:
             store_ids.append(int(store_id))
         except ValueError:
             pass
-            
+
         skip = page * size
         all_products = []
         
@@ -176,16 +175,34 @@ def get_store_categories_data(store_id):
 def get_store_stats_data(store_id):
     """Lấy thống kê chi tiết sản phẩm của store"""
     try:
-        store_ids = [store_id, str(store_id)]
+        # Tạo danh sách các variant của store_id để tìm kiếm
+        store_ids = [str(store_id)]
+        
+        # Thêm variant số nguyên nếu có thể
         try:
-            store_ids.append(int(store_id))
+            numeric_store_id = int(str(store_id))
+            store_ids.append(numeric_store_id)
         except ValueError:
             pass
-            
+        
+        # Thêm variant float nếu chuỗi chứa số thập phân
+        try:
+            float_store_id = float(str(store_id))
+            if float_store_id.is_integer():
+                store_ids.append(int(float_store_id))
+            else:
+                store_ids.append(float_store_id)
+        except ValueError:
+            pass
+        
+        # Loại bỏ duplicate và giữ thứ tự
+        store_ids = list(dict.fromkeys(store_ids))
+                    
         # Get store info
         store_info = metadata_db.stores.find_one({'store_id': {'$in': store_ids}})
+        print(store_info)
         if not store_info:
-            return None, "Store not found"
+            return None, "Không tìm thấy cửa hàng"
         
         stats = {
             'store_info': {
@@ -200,12 +217,12 @@ def get_store_stats_data(store_id):
         }
         
         all_prices = []
-        
+        store_id = store_info.get('store_id')
         for category_name, collection_name in CATEGORY_COLLECTIONS.items():
             try:
                 collection = metadata_db[collection_name]
                 products = list(collection.find({'store_id': {'$in': store_ids}}))
-                
+                print("products",products)
                 if products:
                     # Extract prices for this category
                     category_prices = []
@@ -217,10 +234,10 @@ def get_store_stats_data(store_id):
                                 all_prices.append(price)
                         except (ValueError, TypeError):
                             continue
-                    
+                    print(category_name, len(products))
                     stats['categories'].append({
                         'category': category_name,
-                        'product_count': len(products),
+                        'product_count': len(products),     
                         'price_stats': {
                             'min_price': min(category_prices) if category_prices else 0,
                             'max_price': max(category_prices) if category_prices else 0,
@@ -247,3 +264,5 @@ def get_store_stats_data(store_id):
         
     except Exception as e:
         return None, str(e)
+
+    

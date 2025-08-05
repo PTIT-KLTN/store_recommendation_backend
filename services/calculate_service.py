@@ -14,14 +14,14 @@ class CalculateService:
                 quantity = ingredient.get('quantity', 1)
                 if not isinstance(quantity, (int, float)) or quantity <= 0:
                     quantity = 1
-                    
+                
+                # Loại bỏ net_unit_value khỏi ingredient vì không cần thiết
                 processed_ingredients[name] = {
                     'name': name,
                     'category': ingredient.get('category', ''),
                     'vietnamese_name': ingredient.get('vietnamese_name', ''),
                     'unit': ingredient.get('unit', ''),
-                    'net_unit_value': ingredient.get('net_unit_value', 1),
-                    'total_quantity': quantity * ingredient.get('net_unit_value', 1)
+                    'total_quantity': quantity  # Chỉ cần quantity thôi
                 }
         
         # Process dish ingredients
@@ -34,19 +34,20 @@ class CalculateService:
                         name = dish_ingredient['name'].strip()
                         ingredient_quantity = dish_ingredient.get('quantity', 1)
                         ingredient_unit = dish_ingredient.get('unit', '')
-                        net_unit_value = dish_ingredient.get('net_unit_value', 1)
                         
+                        # Tính total quantity dựa trên servings
                         total_dish_quantity = ingredient_quantity * dish_servings
                         
                         if name in processed_ingredients:
+                            # Cộng dồn quantity nếu nguyên liệu đã tồn tại
                             processed_ingredients[name]['total_quantity'] += total_dish_quantity
                         else:
+                            # Tạo mới nếu chưa tồn tại, loại bỏ net_unit_value
                             processed_ingredients[name] = {
                                 'name': name,
                                 'category': dish_ingredient.get('category', ''),
                                 'vietnamese_name': dish_ingredient.get('vietnamese_name', ''),
                                 'unit': ingredient_unit,
-                                'net_unit_value': net_unit_value,
                                 'total_quantity': total_dish_quantity
                             }
         
@@ -190,7 +191,7 @@ class CalculateService:
                             best_score = score
                             best_field = product_name
                     
-                    if best_score >= 0.5:  # Threshold
+                    if best_score >= 0.4:  # Threshold
                         ingredient_matches.append({
                             'product': product,
                             'score': best_score,

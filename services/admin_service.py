@@ -142,6 +142,9 @@ def update_dish(dish_id, update_data):
 
 def delete_dish(dish_id):
     try:
+        if db.baskets.find_one({'dishes.id': dish_id}):
+            return None, "Món ăn này đang có trong giỏ hàng của user, không thể xóa"
+
         result = db.dishes.delete_one({'_id': ObjectId(dish_id)})
         
         if result.deleted_count == 0:
@@ -237,17 +240,16 @@ def update_ingredient(ingredient_id, update_data):
 
 def delete_ingredient(ingredient_id):
     try:
+        if db.baskets.find_one({'ingredients.id': ingredient_id}):
+            return None, "Nguyên liệu này đang có trong giỏ hàng của user, không thể xóa"
+
         ingr = db.ingredients.find_one({'_id': ObjectId(ingredient_id)})
         if not ingr:
             return None, "Không tìm thấy nguyên liệu"
 
         name = ingr.get('name', '').strip()
-        print(f"name: {name}")
-        # Kiểm tra dùng trong dish
         if db.dishes.find_one({'ingredients.vietnamese_name': name}):
             return None, "Nguyên liệu này đang được sử dụng trong món ăn, không thể xóa"
-        
-        print(db.dishes.find_one({'ingredients.vietnamese_name': name}))
 
         result = db.ingredients.delete_one({'_id': ingr['_id']})
         return (
@@ -431,7 +433,7 @@ def request_admin_password_reset(email):
     if not admin:
         return False, "Không tìm thấy admin với email này"
     token = create_password_reset_token(email, "ADMIN")
-    reset_link = f"https://localhost:3000/reset-password?token={token}&role=ADMIN"
+    reset_link = f"http://localhost:3000/reset-password?token={token}&role=ADMIN"
     send_reset_password_email(email, admin.get('fullname', ''), reset_link)
     return True, "Link reset mật khẩu được gửi thành công"
 
