@@ -1,5 +1,6 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import secrets
+import uuid
 from database.mongodb import MongoDBConnection
 from bson import ObjectId
 from flask_bcrypt import generate_password_hash
@@ -8,6 +9,7 @@ from transformers import pipeline
 import torch    
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import unidecode
+from services.forgot_password_service import send_reset_password_email
 
 # ===== PERFORMANCE =====
 torch.set_num_threads(4)
@@ -40,8 +42,8 @@ def translate_vi2en(vi_text: str) -> str:
 db = MongoDBConnection.get_primary_db()
 metadata_db = MongoDBConnection.get_metadata_db()
 
-def get_admin_role(username):
-    admin_data = db.admins.find_one({'username': username})
+def get_admin_role(email):
+    admin_data = db.admins.find_one({'email': email})
     if not admin_data:
         return None, "Không tìm thấy tài khoản admin"
     
@@ -52,9 +54,9 @@ def check_super_admin_exists():
     super_admin = db.admins.find_one({'role': 'SUPER_ADMIN'})
     return super_admin is not None
 
-def get_admin_role_and_type(username):
+def get_admin_role_and_type(email):
     """Get user role and check if super admin"""
-    admin_data = db.admins.find_one({'username': username})
+    admin_data = db.admins.find_one({'email': email})
     if not admin_data:
         return None, None, "Không tìm thấy tài khoản admin"
     
@@ -64,27 +66,26 @@ def get_admin_role_and_type(username):
     return role, is_super_admin, None
 
 def create_admin_account(admin_data, is_super_admin=False):
-    # Check if admin already exists
-    existing_admin = db.admins.find_one({'username': admin_data['username']})
-    if existing_admin:
-        return None, "Tên đăng nhập admin đã tồn tại"
+    existing_email = db.admins.find_one({'email': admin_data['email']})
+    if existing_email:
+        return None, "Email đã tồn tại"
     
     hashed_password = generate_password_hash(admin_data['password'])
 
     # Create admin user with appropriate role
     role = 'SUPER_ADMIN' if is_super_admin else 'ADMIN'
     admin = Admin(
-        username=admin_data['username'], 
+        email=admin_data['email'], 
         password=hashed_password, 
         fullname=admin_data['fullname'],
         role=role
     )
+
     admin_dict = admin.to_dict()
     admin_result = db.admins.insert_one(admin_dict)
-
     admin_info = {
         'id': str(admin_result.inserted_id),
-        'username': admin_data['username'],
+        'email': admin_data['email'],
         'fullname': admin_data['fullname'],
         'role': role,
         'created_at': admin_dict['created_at'],
@@ -335,7 +336,7 @@ def get_all_admins(page=0, size=20, search=None):
     query = {'role': 'ADMIN'}
     if search:
         regex = {'$regex': search, '$options': 'i'}
-        query['$or'] = [{'username': regex}, {'fullname': regex}]
+        query['$or'] = [{'email': regex}, {'fullname': regex}]
     
     admins = list(
         db.admins.find(query)
@@ -366,7 +367,7 @@ def get_all_admins(page=0, size=20, search=None):
 
 def update_admin_account(admin_id, update_data):
     try:
-        allowed_fields = ['username', 'fullname']
+        allowed_fields = ['email', 'fullname']
         set_data = {k: v for k, v in update_data.items() if k in allowed_fields}
         if not set_data:
             return None, "Không có trường nào hợp lệ để cập nhật"
@@ -383,7 +384,7 @@ def update_admin_account(admin_id, update_data):
         admin = db.admins.find_one({'_id': ObjectId(admin_id)})
         return {
             'id': str(admin['_id']),
-            'username': admin['username'],
+            'email': admin['email'],
             'fullname': admin['fullname'],
             'role': admin.get('role'),
             'is_enabled': admin.get('is_enabled', True),
@@ -407,3 +408,52 @@ def toggle_admin_status(admin_id, enable: bool):
     updated = db.admins.find_one({'_id': ObjectId(admin_id)})
     public = Admin.from_dict(updated).to_public_dict()
     return public, None
+
+
+def generate_reset_token():
+    return str(uuid.uuid4())
+
+def create_password_reset_token(email, role):
+    token = generate_reset_token()
+    expires_at = datetime.utcnow() + timedelta(hours=1)
+
+    # Xóa token cũ cùng email, role (nếu có)
+    db.password_reset_tokens.delete_many({'email': email, 'role': role})
+
+    db.password_reset_tokens.insert_one({
+        'email': email,
+        'token': token,
+        'role': role,
+        'expiry': expires_at,
+        'used': False,
+        'created_at': datetime.utcnow()
+    })
+    return token
+
+def request_admin_password_reset(email):
+    admin = db.admins.find_one({'email': email})
+    if not admin:
+        return False, "No admin found with this email"
+    token = create_password_reset_token(email, "ADMIN")
+    reset_link = f"https://localhost:3000/reset-password?token={token}&role=ADMIN"
+    send_reset_password_email(email, admin.get('fullname', ''), reset_link)
+    return True, "Reset link sent"
+
+def reset_admin_password_by_token(token, new_password):
+
+    doc = db.password_reset_tokens.find_one({'token': token, 'role': 'ADMIN'})
+    if not doc:
+        return False, "Invalid or expired token"
+    if doc['expiry'] < datetime.utcnow():
+        return False, "Token expired"
+
+    hashed_pw = generate_password_hash(new_password).decode('utf-8')
+    db.admins.update_one(
+        {'email': doc['email']},
+        {'$set': {'password': hashed_pw, 'updated_at': datetime.utcnow()}}
+    )
+    db.password_reset_tokens.update_one(
+        {'_id': doc['_id']},
+        {'$set': {'used': True, 'used_at': datetime.utcnow()}}
+    )
+    return True, "Password reset successful"

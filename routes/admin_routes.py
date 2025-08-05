@@ -4,9 +4,16 @@ from services.admin_service import (
     check_super_admin_exists, create_admin_account, 
     create_dish, get_dish_by_id, update_dish, delete_dish, get_all_dishes,
     create_ingredient, get_ingredient_by_id, update_ingredient, delete_ingredient, get_all_ingredients,
-    get_all_categories, toggle_admin_status, update_admin_account, get_all_admins
+    get_all_categories, toggle_admin_status, update_admin_account, get_all_admins,
+    reset_admin_password_by_token, request_admin_password_reset
 )
-from validators.admin_validators import validate_admin_data, validate_dish_data, validate_ingredient_data, validate_object_id, validate_ingredient_update_data, validate_dish_update_data, validate_admin_update_data
+from validators.admin_validators import (
+    validate_admin_data, validate_dish_data, 
+    validate_ingredient_data, validate_object_id, 
+    validate_ingredient_update_data, validate_dish_update_data, 
+    validate_admin_update_data, validate_reset_password_data,
+    validate_forgot_password_data
+)
 from validators.public_validators import validate_pagination_params
 from middleware.admin_middleware import admin_required, super_admin_required
 
@@ -53,7 +60,7 @@ def create_admin_route():
 def create_admin_auth_route():
     """Create admin account - requires super admin authentication"""
     try:
-        current_username = get_jwt_identity()
+        current_email = get_jwt_identity()
         admin_data = request.get_json()
         admin_data['password'] = '123456'
         print(admin_data)
@@ -70,7 +77,7 @@ def create_admin_auth_route():
         return jsonify({
             'message': 'Admin account created successfully',
             'admin': result,
-            'created_by': current_username
+            'created_by': current_email
         }), 201
         
     except Exception as e:
@@ -323,7 +330,7 @@ def list_admin_accounts():
         return jsonify({'message': f'Error fetching admins: {str(e)}'}), 500
 
 
-# Cập nhật email (username) và fullname của admin
+# Cập nhật email và fullname của admin
 @admin_bp.route('/admins/<admin_id>', methods=['PUT'])
 @jwt_required()
 @super_admin_required
@@ -376,3 +383,26 @@ def update_admin_status(admin_id):
     except Exception as e:
         return jsonify({'message': f'Error updating admin status: {str(e)}'}), 500
     
+
+# ===== QUÊN MẬT KHẨU =====
+# Gửi mail quên mật khẩu
+@admin_bp.route('/forgot-password', methods=['POST'])
+def admin_forgot_password_route():
+    data = request.get_json()
+    is_valid, msg = validate_forgot_password_data(data)
+    if not is_valid:
+        return jsonify({'message': msg}), 400
+    ok, message = request_admin_password_reset(data['email'])
+    code = 200 if ok else 404
+    return jsonify({'message': message}), code
+
+# Đặt lại mật khẩu bằng token
+@admin_bp.route('/reset-password', methods=['POST'])
+def admin_reset_password_route():
+    data = request.get_json()
+    is_valid, msg = validate_reset_password_data(data)
+    if not is_valid:
+        return jsonify({'message': msg}), 400
+    ok, message = reset_admin_password_by_token(data['token'], data['new_password'])
+    code = 200 if ok else 400
+    return jsonify({'message': message}), code
