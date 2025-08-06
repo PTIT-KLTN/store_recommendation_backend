@@ -169,8 +169,9 @@ def get_all_dishes(page, size, search_query=None):
         }
     
     dishes = list(
-        db.dishes.find(query)
-        .sort('created_at', -1)
+        db.dishes
+        .find(query)
+        .sort([('$natural', -1)])
         .skip(skip)
         .limit(size)
     )
