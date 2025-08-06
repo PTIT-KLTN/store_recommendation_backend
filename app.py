@@ -61,6 +61,7 @@ def create_app():
     from routes.crawling_routes import crawling_bp
     from routes.admin_auth_routes import admin_auth_bp
     from routes.products_routes import products_bp
+    from routes.report_routes import report_bp
     from routes.schedule_routes import schedule_bp
 
     app.register_blueprint(schedule_bp, url_prefix='/api/v1/schedule')
@@ -75,6 +76,7 @@ def create_app():
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
     app.register_blueprint(store_bp, url_prefix='/api/v1/stores')
     app.register_blueprint(crawling_bp, url_prefix='/api/v1/crawling')
+    app.register_blueprint(report_bp, url_prefix='/api/v1/report')
 
         
     @app.route('/api/v1/test', methods=['GET'])

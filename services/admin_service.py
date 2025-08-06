@@ -111,7 +111,7 @@ def get_dish_by_id(dish_id):
     try:
         dish = db.dishes.find_one({'_id': ObjectId(dish_id)})
         if not dish:
-            return None, "Dish not found"
+            return None, "Không tìm thấy món ăn"
         
         dish['_id'] = str(dish['_id'])
         return dish, None
@@ -131,7 +131,7 @@ def update_dish(dish_id, update_data):
         )
 
         if result.matched_count == 0:
-            return None, "Dish not found"
+            return None, "Không tìm thấy món ăn"
 
         updated_dish = db.dishes.find_one({'_id': ObjectId(dish_id)})
         updated_dish['_id'] = str(updated_dish['_id'])
@@ -148,9 +148,9 @@ def delete_dish(dish_id):
         result = db.dishes.delete_one({'_id': ObjectId(dish_id)})
         
         if result.deleted_count == 0:
-            return None, "Dish not found"
+            return None, "Không tìm thấy món ăn"
         
-        return {'message': 'Dish deleted successfully', 'dish_id': dish_id}, None
+        return {'message': 'Món ăn được xóa thành công', 'dish_id': dish_id}, None
     except Exception as e:
         return None, str(e)
 
@@ -169,8 +169,9 @@ def get_all_dishes(page, size, search_query=None):
         }
     
     dishes = list(
-        db.dishes.find(query)
-        .sort('created_at', -1)
+        db.dishes
+        .find(query)
+        .sort([('$natural', -1)])
         .skip(skip)
         .limit(size)
     )
@@ -272,7 +273,7 @@ def get_all_ingredients(page, size, search_query=None, category=None):
                 {'name': pattern},
                 {'name_en': pattern},
                 {'vietnamese_name': pattern},
-                {'category': pattern},       # chỉ để search linh hoạt
+                {'category': pattern},
             ]
         })
 
@@ -320,10 +321,6 @@ def get_all_ingredients(page, size, search_query=None, category=None):
 
 
 def get_all_categories():
-    """
-    Lấy danh sách tất cả categories từ metadata database,
-    chỉ lấy trường 'name' và trả về list các tên.
-    """
     try:
         cursor = metadata_db.categories.find({}, {'_id': 1, 'name': 1})
         names = [doc['name'] for doc in cursor]
@@ -435,19 +432,19 @@ def create_password_reset_token(email, role):
 def request_admin_password_reset(email):
     admin = db.admins.find_one({'email': email})
     if not admin:
-        return False, "No admin found with this email"
+        return False, "Không tìm thấy admin với email này"
     token = create_password_reset_token(email, "ADMIN")
     reset_link = f"http://localhost:3000/reset-password?token={token}&role=ADMIN"
     send_reset_password_email(email, admin.get('fullname', ''), reset_link)
-    return True, "Reset link sent"
+    return True, "Link reset mật khẩu được gửi thành công"
 
 def reset_admin_password_by_token(token, new_password):
 
     doc = db.password_reset_tokens.find_one({'token': token, 'role': 'ADMIN'})
     if not doc:
-        return False, "Invalid or expired token"
+        return False, "Token đã hết hạn hoặc không hợp lệ."
     if doc['expiry'] < datetime.utcnow():
-        return False, "Token expired"
+        return False, "Token đã hết hạn"
 
     hashed_pw = generate_password_hash(new_password).decode('utf-8')
     db.admins.update_one(
@@ -458,4 +455,4 @@ def reset_admin_password_by_token(token, new_password):
         {'_id': doc['_id']},
         {'$set': {'used': True, 'used_at': datetime.utcnow()}}
     )
-    return True, "Password reset successful"
+    return True, "Mật khẩu được đổi thành công."

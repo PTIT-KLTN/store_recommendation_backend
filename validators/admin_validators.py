@@ -17,7 +17,7 @@ def validate_super_admin_role(user_role):
 
 def validate_admin_data(admin_data):
     if not admin_data:
-        return False, "No admin data provided"
+        return False, 'Không có dữ liệu.'
     
     required_fields = ['email', 'password', 'fullname']
     for field in required_fields:
@@ -25,7 +25,7 @@ def validate_admin_data(admin_data):
             return False, f"{field} is required"
     
     if not validate_email(admin_data['email']):
-        return False, "Invalid email format"
+        return False, "Email không hợp lệ."
     
     is_valid, message = validate_password(admin_data['password'])
     if not is_valid:
@@ -35,9 +35,9 @@ def validate_admin_data(admin_data):
 
 def validate_admin_update_data(update_data):
     if not update_data:
-        return False, "No update data provided"
+        return False, "Không có dữ liệu."
     if not isinstance(update_data, dict):
-        return False, "Invalid update data format"
+        return False, "Kiểu dữ liệu không hợp lệ"
     
     allowed_fields = ['email', 'fullname']
     clean_data = {k: v for k, v in update_data.items() if k in allowed_fields}
@@ -45,25 +45,25 @@ def validate_admin_update_data(update_data):
     # Fullname nếu có không được để trống
     if 'fullname' in clean_data:
         if not clean_data['fullname'].strip():
-            return False, "Fullname is required"
+            return False, "Tên người dùng là bắt buộc."
     
     return True, "Valid"
 
 
 def validate_dish_data(dish_data):
     if not dish_data:
-        return False, "No dish data provided"
+        return False, "Không có dữ liệu món ăn."
     
     required_fields = ['vietnamese_name', 'ingredients']
     for field in required_fields:
         if not dish_data.get(field):
-            return False, f"{field} is required"
+            return False, f"{field} là bắt buộc"
         
     name = dish_data['vietnamese_name'].strip()
     pattern = re.compile(rf'^{re.escape(name)}$', re.IGNORECASE)
     existing = db.dishes.find_one({'vietnamese_name': pattern})
     if existing:
-        return False, f"Dish with name '{name}' already exists"
+        return False, f"Món ăn với tên '{name}' đã tồn tại."
     
     return True, "Valid"
 
@@ -82,24 +82,24 @@ def validate_dish_update_data(dish_id: str, update_data: dict):
         pattern = re.compile(rf'^{re.escape(name)}$', re.IGNORECASE)
         existing = db.dishes.find_one({'vietnamese_name': pattern})
         if existing and str(existing['_id']) != dish_id:
-            return False, f"Dish with name '{name}' already exists"
+            return False, f"Món ăn với tên '{name}' đã tồn tại."
 
     # 3. Nếu có cập nhật ingredients, phải là list không rỗng và mỗi phần tử phải có id & quantity
     if 'ingredients' in update_data:
         ings = update_data['ingredients']
         if not isinstance(ings, list) or len(ings) == 0:
-            return False, "Dish must have at least one ingredient"
+            return False, "Món ăn phải bao gồm ít nhất một nguyên liệu."
 
     return True, "Valid"
 
 def validate_ingredient_data(ingredient_data):
     if not ingredient_data:
-        return False, "No ingredient data provided"
+        return False, "Không có nguyên liệu."
     
     required_fields = ['name', 'category', 'unit', 'net_unit_value']
     for field in required_fields:
         if not ingredient_data.get(field):
-            return False, f"{field} is required"
+            return False, f"{field} là bắt buộc."
         
     if 'net_unit_value' in ingredient_data:
         if not isinstance(ingredient_data['net_unit_value'], (int, float)):
@@ -109,7 +109,7 @@ def validate_ingredient_data(ingredient_data):
     pattern = re.compile(rf'^{re.escape(name)}$', re.IGNORECASE)
     existing = db.ingredients.find_one({'name': pattern})
     if existing:
-        return False, f"Ingredient with name '{name}' already exists"
+        return False, f"Nguyên liệu với tên '{name}' đã tồn tại."
     
     return True, "Valid"
 
@@ -151,7 +151,7 @@ def validate_ingredient_update_data(ingredient_id: str, update_data: dict):
 
     existing = db.ingredients.find_one({'name': pattern})
     if existing and str(existing['_id']) != ingredient_id:
-        return False, f"Ingredient with name '{name}' already exists"
+        return False, f"Nguyên liệu với tên '{name}' đã tồn tại."
     
     return True, "Valid"
 
@@ -159,7 +159,7 @@ def validate_forgot_password_data(data):
     if not data or 'email' not in data:
         return False, "Email is required"
     if not validate_email(data['email']):
-        return False, "Invalid email format"
+        return False, "Email không hợp lệ."
     return True, "Valid"
 
 def validate_reset_password_data(data):
