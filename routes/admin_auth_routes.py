@@ -2,10 +2,14 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, get_jwt_identity, jwt_required
 from flask_bcrypt import check_password_hash
 from utils.token_utils import create_user_tokens
+from validators.admin_validators import validate_forgot_password_data, validate_reset_password_data
 from validators.auth_validators import validate_email
 from database.mongodb import MongoDBConnection
 from datetime import datetime
-from services.admin_auth_service import change_admin_password_service
+from services.admin_auth_service import (
+    reset_admin_password_by_token, request_admin_password_reset
+)
+
 
 admin_auth_bp = Blueprint('admin_auth', __name__)
 db = MongoDBConnection.get_primary_db()
@@ -61,30 +65,6 @@ def admin_logout():
         return jsonify({'message': f'Admin logout failed: {str(e)}'}), 500
 
 
-@admin_auth_bp.route('/change-password', methods=['POST'])
-@jwt_required()
-def change_admin_password():
-    try:
-        admin_email = get_jwt_identity()
-        data = request.get_json() or {}
-        current = data.get('current_password')
-        new = data.get('new_password')
-
-        # Đảm bảo truyền đủ params
-        if not current or not new:
-            return jsonify({'message': 'Current and new password are required'}), 400
-
-        # Gọi service xử lý
-        success, error = change_admin_password_service(admin_email, current, new)
-        if not success:
-            return jsonify({'message': error}), 400
-
-        return jsonify({'message': 'Password changed successfully'}), 200
-
-    except Exception as e:
-        return jsonify({'message': f'Failed to change password: {str(e)}'}), 500
-
-
 @admin_auth_bp.route('/admin/refresh', methods=['POST'])
 def admin_refresh():
     try:
@@ -120,3 +100,26 @@ def admin_refresh():
 
     except Exception as e:
         return jsonify({'message': f'Token refresh failed: {str(e)}'}), 500
+    
+# ===== QUÊN MẬT KHẨU =====
+# Gửi mail quên mật khẩu
+@admin_auth_bp.route('/forgot-password', methods=['POST'])
+def admin_forgot_password_route():
+    data = request.get_json()
+    is_valid, msg = validate_forgot_password_data(data)
+    if not is_valid:
+        return jsonify({'message': msg}), 400
+    ok, message = request_admin_password_reset(data['email'])
+    code = 200 if ok else 404
+    return jsonify({'message': message}), code
+
+# Đặt lại mật khẩu bằng token
+@admin_auth_bp.route('/reset-password', methods=['POST'])
+def admin_reset_password_route():
+    data = request.get_json()
+    is_valid, msg = validate_reset_password_data(data)
+    if not is_valid:
+        return jsonify({'message': msg}), 400
+    ok, message = reset_admin_password_by_token(data['token'], data['new_password'])
+    code = 200 if ok else 400
+    return jsonify({'message': message}), code

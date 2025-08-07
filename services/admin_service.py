@@ -1,15 +1,11 @@
-from datetime import datetime, timedelta
-import secrets
-import uuid
+from datetime import datetime
 from database.mongodb import MongoDBConnection
 from bson import ObjectId
 from flask_bcrypt import generate_password_hash
 from models.admin import Admin
-from transformers import pipeline
 import torch    
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import unidecode
-from services.forgot_password_service import send_reset_password_email
 
 # ===== PERFORMANCE =====
 torch.set_num_threads(4)
@@ -133,8 +129,29 @@ def update_dish(dish_id, update_data):
         if result.matched_count == 0:
             return None, "Không tìm thấy món ăn"
 
+        # Lấy bản ghi dish mới
         updated_dish = db.dishes.find_one({'_id': ObjectId(dish_id)})
         updated_dish['_id'] = str(updated_dish['_id'])
+
+        # Cập nhật trong baskets
+        db.baskets.update_many(
+            { 'dishes.id': dish_id },
+            { '$set': { f'dishes.$.{k}': v for k, v in update_data.items() } }
+        )
+        # Cập nhật trong saved_baskets của user
+        db.users.update_many(
+            { 'saved_baskets.dishes.id': dish_id },
+            {
+                '$set': {
+                    'saved_baskets.$[b].dishes.$[d].' + k: v
+                    for k, v in update_data.items()
+                }
+            },
+            array_filters=[
+                { 'b.dishes.id': dish_id },
+                { 'd.id': dish_id }
+            ]
+        )
 
         return updated_dish, None
     except Exception as e:
@@ -231,8 +248,31 @@ def update_ingredient(ingredient_id, update_data):
         if result.matched_count == 0:
             return None, "Ingredient not found"
 
+        # Lấy bản ghi ingredient
         updated_ingredient = db.ingredients.find_one({'_id': ObjectId(ingredient_id)})
         updated_ingredient['_id'] = str(updated_ingredient['_id'])
+
+        # Nếu ingredients tồn tại trong baskets, cập nhật luôn
+        db.baskets.update_many(
+            { 'ingredients.id': ingredient_id },
+            { '$set': { f'ingredients.$.{k}': v for k, v in update_data.items() } }
+        )
+
+        # Nếu ingredients tồn tại trong saved_baskets của user
+        db.users.update_many(
+            { 'saved_baskets.ingredients.id': ingredient_id },
+            {
+                '$set': {
+                    'saved_baskets.$[b].ingredients.$[i].' + k: v
+                    for k, v in update_data.items()
+                }
+            },
+            array_filters=[
+                { 'b.ingredients.id': ingredient_id },
+                { 'i.id': ingredient_id }
+            ]
+        )
+
         return updated_ingredient, None
 
     except Exception as e:
@@ -409,50 +449,3 @@ def toggle_admin_status(admin_id, enable: bool):
     return public, None
 
 
-def generate_reset_token():
-    return str(uuid.uuid4())
-
-def create_password_reset_token(email, role):
-    token = generate_reset_token()
-    expires_at = datetime.utcnow() + timedelta(hours=1)
-
-    # Xóa token cũ cùng email, role (nếu có)
-    db.password_reset_tokens.delete_many({'email': email, 'role': role})
-
-    db.password_reset_tokens.insert_one({
-        'email': email,
-        'token': token,
-        'role': role,
-        'expiry': expires_at,
-        'used': False,
-        'created_at': datetime.utcnow()
-    })
-    return token
-
-def request_admin_password_reset(email):
-    admin = db.admins.find_one({'email': email})
-    if not admin:
-        return False, "Không tìm thấy admin với email này"
-    token = create_password_reset_token(email, "ADMIN")
-    reset_link = f"http://localhost:3000/reset-password?token={token}&role=ADMIN"
-    send_reset_password_email(email, admin.get('fullname', ''), reset_link)
-    return True, "Link reset mật khẩu được gửi thành công"
-
-def reset_admin_password_by_token(token, new_password):
-
-    doc = db.password_reset_tokens.find_one({'token': token, 'role': 'ADMIN'})
-    if not doc:
-        return False, "Token đã hết hạn hoặc không hợp lệ."
-    if doc['expiry'] < datetime.utcnow():
-        return False, "Token đã hết hạn"
-
-    hashed_pw = generate_password_hash(new_password).decode('utf-8')
-    db.admins.update_one(
-        {'email': doc['email']},
-        {'$set': {'password': hashed_pw, 'updated_at': datetime.utcnow()}}
-    )
-    db.password_reset_tokens.update_one(
-        {'_id': doc['_id']},
-        {'$set': {'used': True, 'used_at': datetime.utcnow()}}
-    )
-    return True, "Mật khẩu được đổi thành công."
