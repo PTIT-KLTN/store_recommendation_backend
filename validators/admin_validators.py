@@ -19,7 +19,7 @@ def validate_admin_data(admin_data):
     if not admin_data:
         return False, 'Không có dữ liệu.'
     
-    required_fields = ['email', 'password', 'fullname']
+    required_fields = ['email', 'fullname']
     for field in required_fields:
         if not admin_data.get(field):
             return False, f"{field} is required"
@@ -27,9 +27,11 @@ def validate_admin_data(admin_data):
     if not validate_email(admin_data['email']):
         return False, "Email không hợp lệ."
     
-    is_valid, message = validate_password(admin_data['password'])
-    if not is_valid:
-        return False, message
+    pwd = admin_data.get('password')
+    if pwd:
+        is_valid, message = validate_password(pwd)
+        if not is_valid:
+            return False, message
     
     return True, "Valid"
 

@@ -20,14 +20,14 @@ def admin_login():
     try:
         data = request.get_json()
         if not data or not all(k in data for k in ('email', 'password')):
-            return jsonify({'message': 'Email and password are required'}), 400
+            return jsonify({'message': 'Không được để trống email và mật khẩu'}), 400
 
         if not validate_email(data['email']):
-            return jsonify({'message': 'Invalid email format'}), 400
+            return jsonify({'message': 'Email không đúng định dạng'}), 400
 
         admin = db.admins.find_one({'email': data['email']})
         if not admin:
-            return jsonify({'message': 'Tên đăng nhập không hợp lệ.'}), 401
+            return jsonify({'message': 'Email không hợp lệ.'}), 401
 
         if not check_password_hash(admin['password'], data['password']):
             return jsonify({'message': 'Mật khẩu không hợp lệ.'}), 401
@@ -102,6 +102,7 @@ def admin_refresh():
         return jsonify({'message': f'Token refresh failed: {str(e)}'}), 500
     
 # ===== QUÊN MẬT KHẨU =====
+
 # Gửi mail quên mật khẩu
 @admin_auth_bp.route('/forgot-password', methods=['POST'])
 def admin_forgot_password_route():

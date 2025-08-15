@@ -66,10 +66,15 @@ def create_admin_account(admin_data, is_super_admin=False):
     if existing_email:
         return None, "Email đã tồn tại"
     
+    if not is_super_admin:
+        today_str = datetime.utcnow().strftime('%Y%m%d')
+        admin_data['password'] = f"{admin_data['fullname']}@{today_str}"
+    
     hashed_password = generate_password_hash(admin_data['password'])
 
     # Create admin user with appropriate role
     role = 'SUPER_ADMIN' if is_super_admin else 'ADMIN'
+
     admin = Admin(
         email=admin_data['email'], 
         password=hashed_password, 

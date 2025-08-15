@@ -70,7 +70,7 @@ def request_admin_password_reset(email):
     if not admin:
         return False, "Không tìm thấy admin với email này"
     token = create_password_reset_token(email, "ADMIN")
-    reset_link = f"http://localhost:3000/reset-password?token={token}&role=ADMIN"
+    reset_link = f"http://markendation-admin.s3-website-ap-southeast-1.amazonaws.com/reset-password?token={token}&role=ADMIN"
     send_reset_password_email(email, admin.get('fullname', ''), reset_link)
     return True, "Link reset mật khẩu được gửi thành công"
 

@@ -20,10 +20,9 @@ admin_bp = Blueprint('admin', __name__)
 # Admin Account Management
 @admin_bp.route('/create-admin', methods=['POST'])
 def create_admin_route():
-    """Create admin account"""
+    """Create super admin account"""
     try:
         admin_data = request.get_json()
-        admin_data['password'] = '123456'
         
         is_valid, message = validate_admin_data(admin_data)
         if not is_valid:
@@ -60,8 +59,8 @@ def create_admin_auth_route():
     try:
         current_email = get_jwt_identity()
         admin_data = request.get_json()
-        admin_data['password'] = '123456'
-        print(admin_data)
+        # admin_data['password'] = '123456'
+        # print(admin_data)
         
         is_valid, message = validate_admin_data(admin_data)
         if not is_valid:
