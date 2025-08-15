@@ -35,7 +35,7 @@ def process_user(user_data, auth_provider='local'):
         
         if existing_user:
             if auth_provider == 'local':
-                raise Exception("User with this email already exists")
+                raise Exception("Người dùng với tài khoản này đã tồn tại")
             else:
                 db.users.update_one(
                     {'_id': existing_user['_id']},
@@ -47,7 +47,7 @@ def process_user(user_data, auth_provider='local'):
         else:
             if auth_provider == 'local':
                 if not password:
-                    raise Exception("Password is required")
+                    raise Exception("Vui lòng nhập mật khẩu")
                 is_valid, message = validate_password(password)
                 if not is_valid:
                     raise Exception(message)
@@ -76,9 +76,9 @@ def process_user(user_data, auth_provider='local'):
         user_profile = create_user_profile(user_data_from_db, auth_provider)
         
         if auth_provider == 'google':
-            message = 'Google login successful'
+            message = 'Đăng nhập bằng Google thành công!'
         else:
-            message = 'User registered successfully' if is_new_user else 'Login successful'
+            message = 'Đăng ký thành công!' if is_new_user else 'Đăng nhập thành công!'
         
         return {
             'access_token': access_token,
@@ -89,7 +89,7 @@ def process_user(user_data, auth_provider='local'):
         }
         
     except Exception as e:
-        raise Exception(f"Failed to process user: {str(e)}")
+        raise Exception(f"Lỗi xác thực: {str(e)}")
 
 def create_user_profile(user_data, auth_provider):
     return {

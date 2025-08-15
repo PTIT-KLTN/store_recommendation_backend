@@ -136,6 +136,7 @@ class CalculateService:
             'Grains & Staples': 'grains_&_staples',
             'Ice Cream & Cheese': 'ice_cream_&_cheese',
             'Instant Foods': 'instant_foods',
+            'Milk' : 'milk',
             'Seafood & Fish Balls': 'seafood_&_fish_balls',
             'Seasonings': 'seasonings',
             'Snacks': 'snacks',
@@ -191,7 +192,7 @@ class CalculateService:
                             best_score = score
                             best_field = product_name
                     
-                    if best_score >= 0.4:  # Threshold
+                    if best_score >= 0.2:  # Threshold
                         ingredient_matches.append({
                             'product': product,
                             'score': best_score,
@@ -231,8 +232,6 @@ class CalculateService:
                     product_unit = best_product.get('unit', '')
                     actual_quantity_needed = ingredient_quantity_needed / net_unit_value
                     
-                    # print ("số lượng thật sự cần của ", best_product.get("name"), " = ", ingredient_quantity_needed, " / ", net_unit_value, "=", actual_quantity_needed)
-
                     units_to_buy = max(1, round(actual_quantity_needed, 3))
                     
                     # Calculate total cost
