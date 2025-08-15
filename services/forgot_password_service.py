@@ -258,7 +258,7 @@ def send_reset_password_email(email: str, fullname: str, reset_link: str):
                 <div class="link-box">{reset_link}</div>
                 
                 <div class="warning">
-                    <strong>⏰ Quan trọng:</strong> Liên kết này sẽ hết hạn sau <strong>1 giờ</strong> vì lý do bảo mật.
+                    <strong>⏰ Quan trọng:</strong> Liên kết này sẽ hết hạn sau <strong>5 phút</strong> vì lý do bảo mật.
                 </div>
                 
                 <p><strong>Lưu ý:</strong> Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này. Mật khẩu của bạn sẽ không thay đổi.</p>
