@@ -1,6 +1,6 @@
 from flask import Flask
 from flask_cors import CORS
-from flask_jwt_extended import JWTManager
+from flask_jwt_extended import JWTManager # type: ignore
 from flask_bcrypt import Bcrypt
 import os
 from dotenv import load_dotenv
@@ -8,8 +8,7 @@ from datetime import timedelta
 
 load_dotenv()
 
-RADMIN_IP = os.getenv('RADMIN_IP')
-RADMIN_NETWORK_NAME = os.getenv('RADMIN_NETWORK_NAME')
+TAILSCALE = os.getenv('TAILSCALE_IP')
 FLASK_PORT = os.getenv('FLASK_PORT')
 NGROK_URL = os.getenv('NGROK_URL')
 
@@ -25,8 +24,9 @@ def create_app():
          origins=[
             'http://localhost:3000', 
             'http://127.0.0.1:3000',
-            f'http://{RADMIN_IP}:3000',  
+            f'http://{TAILSCALE}:3000',  
             'http://markendation.s3-website-ap-southeast-1.amazonaws.com',
+            'http://markendation-admin.s3-website-ap-southeast-1.amazonaws.com',
             f'{NGROK_URL}'
         ],
          methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -83,8 +83,7 @@ def create_app():
     def api_test():
         return {
             'message': 'API test successful',
-            'network': RADMIN_NETWORK_NAME,
-            'server_ip': RADMIN_IP
+            'server_ip': TAILSCALE
         }
     
     return app
@@ -92,8 +91,7 @@ def create_app():
 if __name__ == '__main__':
     app = create_app()
     # celery_app.start()
-    print(f"Flask API running on Radmin network: {RADMIN_NETWORK_NAME}")
-    print(f"Access URL: http://{RADMIN_IP}:{FLASK_PORT}")
-    print(f"Test endpoint: http://{RADMIN_IP}:{FLASK_PORT}/api/v1/test")
+    print(f"Access URL: http://{TAILSCALE}:{FLASK_PORT}")
+    print(f"Test endpoint: http://{TAILSCALE}:{FLASK_PORT}/api/v1/test")
     
     app.run(debug=True, host='0.0.0.0', port=FLASK_PORT, threaded=True, use_reloader=True)

@@ -17,6 +17,7 @@ class RabbitMQService:
         
         # Config
         self.rabbitmq_url = os.getenv('RABBITMQ_URL')
+        print(self.rabbitmq_url)
         self.request_queue = os.getenv('RABBITMQ_CRAWLING_REQUEST_QUEUE')
         self.response_queue = os.getenv('RABBITMQ_CRAWLING_RESPONSE_QUEUE')
         
