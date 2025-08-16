@@ -416,12 +416,16 @@ def update_admin_account(admin_id, update_data):
         if not set_data:
             return None, "Không có trường nào hợp lệ để cập nhật"
         
-        set_data['updated_at'] = datetime.utcnow()
+        if 'email' in set_data:
+            existed = db.admins.find_one({
+                'email': set_data['email'],
+                '_id': {'$ne': ObjectId(admin_id)}
+            })
+            if existed:
+                return None, "Email đã tồn tại"
         
-        result = db.admins.update_one(
-            {'_id': ObjectId(admin_id)},
-            {'$set': set_data}
-        )
+        set_data['updated_at'] = datetime.utcnow()
+        result = db.admins.update_one({'_id': ObjectId(admin_id)}, {'$set': set_data})
         if result.matched_count == 0:
             return None, "Không tìm thấy tài khoản admin"
         

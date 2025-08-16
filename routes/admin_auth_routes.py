@@ -82,7 +82,7 @@ def admin_refresh():
 
         if refresh_token_doc['expiration_time'] < datetime.utcnow():
             db.refresh_tokens.delete_one({'_id': refresh_token_doc['_id']})
-            return jsonify({'message': 'Refresh token expired'}), 401
+            return jsonify({'message': 'Phiên đăng nhập đã hết hạn'}), 401
 
         admin_email = refresh_token_doc['email']
 
