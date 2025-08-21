@@ -192,7 +192,7 @@ class CalculateService:
                             best_score = score
                             best_field = product_name
                     
-                    if best_score >= 0.2:  # Threshold
+                    if best_score >= 0.4:  # Threshold
                         ingredient_matches.append({
                             'product': product,
                             'score': best_score,

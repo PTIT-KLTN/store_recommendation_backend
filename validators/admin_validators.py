@@ -98,14 +98,10 @@ def validate_ingredient_data(ingredient_data):
     if not ingredient_data:
         return False, "Không có nguyên liệu."
     
-    required_fields = ['name', 'category', 'unit', 'net_unit_value']
+    required_fields = ['name', 'category', 'unit']
     for field in required_fields:
         if not ingredient_data.get(field):
             return False, f"{field} là bắt buộc."
-        
-    if 'net_unit_value' in ingredient_data:
-        if not isinstance(ingredient_data['net_unit_value'], (int, float)):
-            return False, "net_unit_value must be a number"
 
     name = ingredient_data['name'].strip()
     pattern = re.compile(rf'^{re.escape(name)}$', re.IGNORECASE)
