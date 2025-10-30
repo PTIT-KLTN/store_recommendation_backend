@@ -1,6 +1,6 @@
 import logging
 from typing import List, Dict, Any, Optional
-from database.mongodb import get_database
+from database.mongodb import MongoDBConnection
 
 logger = logging.getLogger(__name__)
 
@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 class AllergyService:
     
     def __init__(self):
-        self.db = get_database()
+        self.db = MongoDBConnection.get_primary_db()
         self.users_collection = self.db['users']
     
     def add_allergy(self, user_email: str, ingredient_data: Dict[str, Any]) -> Dict[str, Any]:
