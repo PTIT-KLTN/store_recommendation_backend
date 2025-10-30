@@ -63,6 +63,7 @@ def create_app():
     from routes.products_routes import products_bp
     from routes.report_routes import report_bp
     from routes.schedule_routes import schedule_bp
+    from routes.allergy_routes import allergy_bp
 
     app.register_blueprint(schedule_bp, url_prefix='/api/v1/schedule')
     app.register_blueprint(products_bp, url_prefix='/api/v1/products')
@@ -77,6 +78,7 @@ def create_app():
     app.register_blueprint(store_bp, url_prefix='/api/v1/stores')
     app.register_blueprint(crawling_bp, url_prefix='/api/v1/crawling')
     app.register_blueprint(report_bp, url_prefix='/api/v1/report')
+    app.register_blueprint(allergy_bp, url_prefix='/api/v1/user')
 
         
     @app.route('/api/v1/test', methods=['GET'])

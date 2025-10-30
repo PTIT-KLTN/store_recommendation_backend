@@ -19,6 +19,7 @@ class User:
         self.near_stores = []
         self.saved_baskets = []
         self.favourite_stores = []
+        self.allergies = []  # List of ingredient IDs or names that user is allergic to
         self.is_enabled = True
         self.created_at = datetime.utcnow()
     
@@ -33,6 +34,7 @@ class User:
             'near_stores': self.near_stores,
             'saved_baskets': self.saved_baskets,
             'favourite_stores': self.favourite_stores,
+            'allergies': self.allergies,
             'is_enabled': self.is_enabled,
             'created_at': self.created_at
         }
@@ -49,7 +51,8 @@ class User:
         user.basket_id = data.get('basket_id')
         user.near_stores = data.get('near_stores', [])
         user.saved_baskets = data.get('saved_baskets', [])
-        user.favourite_stores = data.get('favourite_stores', []) 
+        user.favourite_stores = data.get('favourite_stores', [])
+        user.allergies = data.get('allergies', [])
         user.is_enabled = data.get('is_enabled', True)
         user.created_at = data.get('created_at', datetime.utcnow())
         return user
@@ -66,6 +69,7 @@ class User:
             'role': self.role,
             'location': self.location,
             'favourite_stores': self.favourite_stores,
+            'allergies': self.allergies,
             'is_enabled': self.is_enabled,
             'created_at': self.created_at
         }
