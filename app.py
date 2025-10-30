@@ -54,7 +54,7 @@ def create_app():
     from routes.public_routes import public_bp
     from routes.user_routes import user_bp
     from routes.basket_routes import basket_bp
-    # from routes.ai_routes import ai_bp
+    from routes.ai_routes import ai_bp
     from routes.calculate_routes import calculate_bp
     from routes.admin_routes import admin_bp
     from routes.store_routes import store_bp
@@ -71,7 +71,7 @@ def create_app():
     app.register_blueprint(user_bp, url_prefix='/api/v1/user')
     app.register_blueprint(basket_bp, url_prefix='/api/v1/basket')
     app.register_blueprint(admin_auth_bp, url_prefix='/api/v1/admin_auth')
-    # app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
+    app.register_blueprint(ai_bp, url_prefix='/api/v1/ai')
     app.register_blueprint(calculate_bp, url_prefix='/api/v1/calculate')
     app.register_blueprint(admin_bp, url_prefix='/api/v1/admin')
     app.register_blueprint(store_bp, url_prefix='/api/v1/stores')
