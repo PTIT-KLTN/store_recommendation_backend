@@ -123,7 +123,7 @@ def process_text():
             'requestMessage': description
         }
         
-        response = rabbitmq_service.send_message(message, timeout=25)
+        response = rabbitmq_service.send_message(message, timeout=100)
         return jsonify(response), 200
         
     except TimeoutError:
@@ -153,7 +153,7 @@ def process_image():
             'fileName': s3_key
         }
         
-        response = rabbitmq_service.send_message(message, timeout=15)
+        response = rabbitmq_service.send_message(message, timeout=100)
         return jsonify(response), 200
         
     except TimeoutError:
