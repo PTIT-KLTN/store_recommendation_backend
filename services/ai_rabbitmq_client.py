@@ -22,7 +22,7 @@ class AIServiceClient:
         username: str = None,
         password: str = None,
         virtual_host: str = '/',
-        timeout: int = 30
+        timeout: int = 100
     ):
 
         self.host = host or os.getenv('RABBITMQ_HOST', 'localhost')
@@ -239,7 +239,7 @@ def get_ai_service_client() -> AIServiceClient:
                     username=os.getenv('RABBITMQ_AI_USERNAME'),
                     password=os.getenv('RABBITMQ_AI_PASSWORD'),
                     virtual_host=os.getenv('RABBITMQ_AI_VIRTUAL_HOST', '/'),
-                    timeout=int(os.getenv('AI_SERVICE_TIMEOUT', 30))
+                    timeout=int(os.getenv('AI_SERVICE_TIMEOUT', 100))
                 )
     
     return _client_instance

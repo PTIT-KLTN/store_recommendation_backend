@@ -23,7 +23,8 @@ def get_current_user_email():
         
         token = parts[1]
         user_data = decode_token(token)
-        return user_data.get('email') if user_data else None
+        # Flask-JWT-Extended stores email in 'sub' field
+        return user_data.get('sub') or user_data.get('identity') or user_data.get('email') if user_data else None
     except Exception:
         return None
 
@@ -49,16 +50,7 @@ def apply_allergy_filter(result: dict) -> dict:
 
 
 def process_excluded_ingredients(result: dict, user_email: str = None) -> dict:
-    """
-    Process excluded_ingredients from AI Service response and add to user's allergies
-    
-    Args:
-        result: AI Service response result
-        user_email: Current user email (optional, will be extracted from token if not provided)
-    
-    Returns:
-        Modified result with excluded_ingredients processed
-    """
+
     if not user_email:
         user_email = get_current_user_email()
     
@@ -497,3 +489,90 @@ def upload_and_analyze():
     except Exception as e:
         logger.error(f"Error in upload and analyze: {e}", exc_info=True)
         return jsonify({'success': False, 'error': f'Internal server error: {str(e)}'}), 500
+
+
+@ai_bp.route('/test-token', methods=['GET'])
+def test_token():
+    """
+    Test endpoint để kiểm tra hàm get_current_user_email()
+    Gọi trực tiếp hàm để test xem có hoạt động đúng không
+    """
+    try:
+        logger.info("=" * 60)
+        logger.info("🧪 TEST get_current_user_email() FUNCTION")
+        logger.info("=" * 60)
+        
+        # Gọi hàm get_current_user_email() - đây là hàm được dùng trong luồng AI
+        user_email = get_current_user_email()
+        
+        logger.info(f"[RESULT] get_current_user_email() returned: {user_email}")
+        
+        # Kiểm tra kết quả
+        if user_email:
+            logger.info("✅ SUCCESS: Email extracted successfully!")
+            logger.info("=" * 60)
+            return jsonify({
+                'success': True,
+                'message': 'Hàm get_current_user_email() hoạt động đúng!',
+                'email': user_email,
+                'function_name': 'get_current_user_email',
+                'status': 'working'
+            }), 200
+        else:
+            logger.warning("⚠️ WARNING: get_current_user_email() returned None")
+            logger.info("=" * 60)
+            
+            # Debug thêm: kiểm tra token thủ công
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return jsonify({
+                    'success': False,
+                    'message': 'Không tìm thấy Authorization header',
+                    'email': None,
+                    'function_name': 'get_current_user_email',
+                    'status': 'no_auth_header',
+                    'debug': {
+                        'auth_header': None,
+                        'headers': dict(request.headers)
+                    }
+                }), 401
+            
+            # Thử decode thủ công để debug
+            try:
+                parts = auth_header.split()
+                if len(parts) == 2:
+                    token = parts[1]
+                    decoded = decode_token(token)
+                    return jsonify({
+                        'success': False,
+                        'message': 'Hàm get_current_user_email() trả về None nhưng token decode được',
+                        'email': None,
+                        'function_name': 'get_current_user_email',
+                        'status': 'function_returned_none',
+                        'debug': {
+                            'decoded_token': decoded,
+                            'token_fields': list(decoded.keys()) if decoded else None,
+                            'sub_field': decoded.get('sub') if decoded else None,
+                            'email_field': decoded.get('email') if decoded else None
+                        }
+                    }), 200
+            except Exception as debug_error:
+                logger.error(f"Debug decode error: {debug_error}")
+            
+            return jsonify({
+                'success': False,
+                'message': 'Hàm get_current_user_email() trả về None',
+                'email': None,
+                'function_name': 'get_current_user_email',
+                'status': 'returned_none'
+            }), 401
+        
+    except Exception as e:
+        logger.error(f"[ERROR] Test token endpoint failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error',
+            'message': str(e),
+            'function_name': 'get_current_user_email',
+            'status': 'exception'
+        }), 500

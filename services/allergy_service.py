@@ -183,7 +183,23 @@ class AllergyService:
         }
     
     def add_allergies_from_ai(self, user_email: str, excluded_ingredients: list) -> Dict[str, Any]:
-
+        """
+        Batch add allergies detected from AI recipe analysis
+        
+        Args:
+            user_email: User's email
+            excluded_ingredients: List of excluded ingredients from AI
+                [{
+                    'ingredient_id': str,
+                    'name_vi': str,
+                    'name_en': str,
+                    'category': str,
+                    'reason': str
+                }]
+        
+        Returns:
+            Dict with success status and details of added/skipped ingredients
+        """
         try:
             if not excluded_ingredients or not isinstance(excluded_ingredients, list):
                 return {
@@ -199,21 +215,22 @@ class AllergyService:
             skipped_ingredients = []
             
             for excluded_item in excluded_ingredients:
-                # Build ingredient data for allergy service
+                # AI Service now returns full structure with all fields
                 ingredient_data = {
-                    'name_vi': excluded_item.get('name', ''),
-                    'name_en': excluded_item.get('name', ''),
                     'ingredient_id': excluded_item.get('ingredient_id', ''),
+                    'name_vi': excluded_item.get('name_vi', ''),
+                    'name_en': excluded_item.get('name_en', ''),
                     'category': excluded_item.get('category', ''),
                     'reason': excluded_item.get('reason', 'Detected from recipe analysis'),
                     'source': 'ai_detection'
                 }
                 
-                # Skip if name is empty
+                # Skip if name_vi is empty
                 if not ingredient_data['name_vi']:
                     skipped_ingredients.append({
-                        'name': excluded_item.get('name', 'Unknown'),
-                        'reason': 'Invalid name'
+                        'name_vi': excluded_item.get('name_vi', 'Unknown'),
+                        'name_en': excluded_item.get('name_en', ''),
+                        'reason': 'Invalid name_vi'
                     })
                     continue
                 
@@ -222,20 +239,27 @@ class AllergyService:
                 
                 if result.get('success'):
                     added_ingredients.append({
-                        'name': ingredient_data['name_vi'],
+                        'ingredient_id': ingredient_data['ingredient_id'],
+                        'name_vi': ingredient_data['name_vi'],
+                        'name_en': ingredient_data['name_en'],
+                        'category': ingredient_data['category'],
                         'reason': ingredient_data['reason']
                     })
                     logger.info(f"Added AI-detected allergy: {ingredient_data['name_vi']} for {user_email}")
                 elif 'already exists' in result.get('error', ''):
                     # Already exists, skip
                     skipped_ingredients.append({
-                        'name': ingredient_data['name_vi'],
+                        'ingredient_id': ingredient_data['ingredient_id'],
+                        'name_vi': ingredient_data['name_vi'],
+                        'name_en': ingredient_data['name_en'],
                         'reason': 'Already in allergies list'
                     })
                 else:
                     # Other error, skip
                     skipped_ingredients.append({
-                        'name': ingredient_data['name_vi'],
+                        'ingredient_id': ingredient_data['ingredient_id'],
+                        'name_vi': ingredient_data['name_vi'],
+                        'name_en': ingredient_data['name_en'],
                         'reason': result.get('error', 'Unknown error')
                     })
             
