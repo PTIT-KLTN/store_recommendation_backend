@@ -48,6 +48,82 @@ def apply_allergy_filter(result: dict) -> dict:
     return result
 
 
+def process_excluded_ingredients(result: dict, user_email: str = None) -> dict:
+    """
+    Process excluded_ingredients from AI Service response and add to user's allergies
+    
+    Args:
+        result: AI Service response result
+        user_email: Current user email (optional, will be extracted from token if not provided)
+    
+    Returns:
+        Modified result with excluded_ingredients processed
+    """
+    if not user_email:
+        user_email = get_current_user_email()
+    
+    if not user_email:
+        return result
+    
+    excluded_ingredients = result.get('excluded_ingredients', [])
+    
+    if not excluded_ingredients:
+        return result
+    
+    try:
+        allergy_service = get_allergy_service()
+        
+        # Use batch method to add excluded ingredients
+        ai_result = allergy_service.add_allergies_from_ai(user_email, excluded_ingredients)
+        
+        # Add processing results to warnings
+        warnings = list(result.get('warnings', []))
+        
+        if ai_result.get('success'):
+            if ai_result.get('added_count', 0) > 0:
+                warnings.append({
+                    'type': 'excluded_ingredients_added',
+                    'message': f'Đã thêm {ai_result["added_count"]} nguyên liệu dị ứng mới vào hồ sơ của bạn',
+                    'added_ingredients': ai_result.get('added_ingredients', []),
+                    'severity': 'info',
+                    'source': 'ai_recipe_analysis'
+                })
+                logger.info(f"Added {ai_result['added_count']} excluded ingredients for user {user_email}")
+            
+            if ai_result.get('skipped_count', 0) > 0:
+                warnings.append({
+                    'type': 'excluded_ingredients_skipped',
+                    'message': f'{ai_result["skipped_count"]} nguyên liệu đã tồn tại hoặc không hợp lệ',
+                    'skipped_ingredients': ai_result.get('skipped_ingredients', []),
+                    'severity': 'info',
+                    'source': 'ai_recipe_analysis'
+                })
+        else:
+            logger.error(f"Failed to add excluded ingredients: {ai_result.get('error')}")
+            warnings.append({
+                'type': 'excluded_ingredients_error',
+                'message': 'Không thể xử lý nguyên liệu dị ứng được phát hiện',
+                'error': ai_result.get('error'),
+                'severity': 'warning',
+                'source': 'ai_recipe_analysis'
+            })
+        
+        result['warnings'] = warnings
+            
+    except Exception as e:
+        logger.error(f"Error processing excluded ingredients: {e}", exc_info=True)
+        warnings = list(result.get('warnings', []))
+        warnings.append({
+            'type': 'excluded_ingredients_error',
+            'message': 'Lỗi hệ thống khi xử lý nguyên liệu dị ứng',
+            'severity': 'warning',
+            'source': 'ai_recipe_analysis'
+        })
+        result['warnings'] = warnings
+    
+    return result
+
+
 def normalize_response(response: dict) -> tuple:
     """Normalize AI Service response format and detect status"""
     if 'result' in response and isinstance(response['result'], dict):
@@ -79,7 +155,7 @@ def get_error_message(error_type: str, dish_name: str = '') -> tuple:
 
 
 def build_standard_response(status: str, result: dict, error_msg: str = None, user_msg: str = None) -> dict:
-    """Build standardized 10-field response"""
+    """Build standardized 11-field response (added excluded_ingredients)"""
     return {
         'status': status,
         'error': error_msg,
@@ -91,6 +167,7 @@ def build_standard_response(status: str, result: dict, error_msg: str = None, us
         'similar_dishes': result.get('similar_dishes', []),
         'warnings': result.get('warnings', []),
         'insights': result.get('insights', []),
+        'excluded_ingredients': result.get('excluded_ingredients', []),
         'guardrail': result.get('guardrail')
     }
 
@@ -211,6 +288,9 @@ def analyze_recipe():
             return jsonify(build_standard_response('error', result, error_message, user_message)), status_code
         
         elif status == 'success':
+            # Process excluded ingredients and add to user's allergies
+            result = process_excluded_ingredients(result)
+            # Then apply allergy filter to cart items
             result = apply_allergy_filter(result)
             return jsonify(build_standard_response('success', result)), 200
         
@@ -305,6 +385,8 @@ def analyze_image():
             return jsonify(build_standard_response('error', result, error_message, user_message)), status_code
         
         elif status == 'success':
+            # Process excluded ingredients and add to user's allergies
+            result = process_excluded_ingredients(result)
             return jsonify(build_standard_response('success', result)), 200
         
         else:
@@ -395,6 +477,8 @@ def upload_and_analyze():
             return jsonify(response_with_key(build_standard_response('error', result, error_message, user_message))), status_code
         
         elif status == 'success':
+            # Process excluded ingredients and add to user's allergies
+            result = process_excluded_ingredients(result)
             return jsonify(response_with_key(build_standard_response('success', result))), 200
         
         else:
