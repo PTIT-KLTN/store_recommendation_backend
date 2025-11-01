@@ -23,7 +23,8 @@ def get_current_user_email():
         
         token = parts[1]
         user_data = decode_token(token)
-        return user_data.get('email') if user_data else None
+        # Flask-JWT-Extended stores email in 'sub' field
+        return user_data.get('sub') or user_data.get('identity') or user_data.get('email') if user_data else None
     except Exception:
         return None
 
@@ -45,6 +46,73 @@ def apply_allergy_filter(result: dict) -> dict:
     
     result['cart'] = cart
     result['warnings'] = warnings
+    return result
+
+
+def process_excluded_ingredients(result: dict, user_email: str = None) -> dict:
+
+    if not user_email:
+        user_email = get_current_user_email()
+    
+    if not user_email:
+        return result
+    
+    excluded_ingredients = result.get('excluded_ingredients', [])
+    
+    if not excluded_ingredients:
+        return result
+    
+    try:
+        allergy_service = get_allergy_service()
+        
+        # Use batch method to add excluded ingredients
+        ai_result = allergy_service.add_allergies_from_ai(user_email, excluded_ingredients)
+        
+        # Add processing results to warnings
+        warnings = list(result.get('warnings', []))
+        
+        if ai_result.get('success'):
+            if ai_result.get('added_count', 0) > 0:
+                warnings.append({
+                    'type': 'excluded_ingredients_added',
+                    'message': f'Đã thêm {ai_result["added_count"]} nguyên liệu dị ứng mới vào hồ sơ của bạn',
+                    'added_ingredients': ai_result.get('added_ingredients', []),
+                    'severity': 'info',
+                    'source': 'ai_recipe_analysis'
+                })
+                logger.info(f"Added {ai_result['added_count']} excluded ingredients for user {user_email}")
+            
+            if ai_result.get('skipped_count', 0) > 0:
+                warnings.append({
+                    'type': 'excluded_ingredients_skipped',
+                    'message': f'{ai_result["skipped_count"]} nguyên liệu đã tồn tại hoặc không hợp lệ',
+                    'skipped_ingredients': ai_result.get('skipped_ingredients', []),
+                    'severity': 'info',
+                    'source': 'ai_recipe_analysis'
+                })
+        else:
+            logger.error(f"Failed to add excluded ingredients: {ai_result.get('error')}")
+            warnings.append({
+                'type': 'excluded_ingredients_error',
+                'message': 'Không thể xử lý nguyên liệu dị ứng được phát hiện',
+                'error': ai_result.get('error'),
+                'severity': 'warning',
+                'source': 'ai_recipe_analysis'
+            })
+        
+        result['warnings'] = warnings
+            
+    except Exception as e:
+        logger.error(f"Error processing excluded ingredients: {e}", exc_info=True)
+        warnings = list(result.get('warnings', []))
+        warnings.append({
+            'type': 'excluded_ingredients_error',
+            'message': 'Lỗi hệ thống khi xử lý nguyên liệu dị ứng',
+            'severity': 'warning',
+            'source': 'ai_recipe_analysis'
+        })
+        result['warnings'] = warnings
+    
     return result
 
 
@@ -79,7 +147,7 @@ def get_error_message(error_type: str, dish_name: str = '') -> tuple:
 
 
 def build_standard_response(status: str, result: dict, error_msg: str = None, user_msg: str = None) -> dict:
-    """Build standardized 10-field response"""
+    """Build standardized 11-field response (added excluded_ingredients)"""
     return {
         'status': status,
         'error': error_msg,
@@ -91,6 +159,7 @@ def build_standard_response(status: str, result: dict, error_msg: str = None, us
         'similar_dishes': result.get('similar_dishes', []),
         'warnings': result.get('warnings', []),
         'insights': result.get('insights', []),
+        'excluded_ingredients': result.get('excluded_ingredients', []),
         'guardrail': result.get('guardrail')
     }
 
@@ -211,6 +280,9 @@ def analyze_recipe():
             return jsonify(build_standard_response('error', result, error_message, user_message)), status_code
         
         elif status == 'success':
+            # Process excluded ingredients and add to user's allergies
+            result = process_excluded_ingredients(result)
+            # Then apply allergy filter to cart items
             result = apply_allergy_filter(result)
             return jsonify(build_standard_response('success', result)), 200
         
@@ -305,6 +377,8 @@ def analyze_image():
             return jsonify(build_standard_response('error', result, error_message, user_message)), status_code
         
         elif status == 'success':
+            # Process excluded ingredients and add to user's allergies
+            result = process_excluded_ingredients(result)
             return jsonify(build_standard_response('success', result)), 200
         
         else:
@@ -395,6 +469,8 @@ def upload_and_analyze():
             return jsonify(response_with_key(build_standard_response('error', result, error_message, user_message))), status_code
         
         elif status == 'success':
+            # Process excluded ingredients and add to user's allergies
+            result = process_excluded_ingredients(result)
             return jsonify(response_with_key(build_standard_response('success', result))), 200
         
         else:
@@ -413,3 +489,90 @@ def upload_and_analyze():
     except Exception as e:
         logger.error(f"Error in upload and analyze: {e}", exc_info=True)
         return jsonify({'success': False, 'error': f'Internal server error: {str(e)}'}), 500
+
+
+@ai_bp.route('/test-token', methods=['GET'])
+def test_token():
+    """
+    Test endpoint để kiểm tra hàm get_current_user_email()
+    Gọi trực tiếp hàm để test xem có hoạt động đúng không
+    """
+    try:
+        logger.info("=" * 60)
+        logger.info("🧪 TEST get_current_user_email() FUNCTION")
+        logger.info("=" * 60)
+        
+        # Gọi hàm get_current_user_email() - đây là hàm được dùng trong luồng AI
+        user_email = get_current_user_email()
+        
+        logger.info(f"[RESULT] get_current_user_email() returned: {user_email}")
+        
+        # Kiểm tra kết quả
+        if user_email:
+            logger.info("✅ SUCCESS: Email extracted successfully!")
+            logger.info("=" * 60)
+            return jsonify({
+                'success': True,
+                'message': 'Hàm get_current_user_email() hoạt động đúng!',
+                'email': user_email,
+                'function_name': 'get_current_user_email',
+                'status': 'working'
+            }), 200
+        else:
+            logger.warning("⚠️ WARNING: get_current_user_email() returned None")
+            logger.info("=" * 60)
+            
+            # Debug thêm: kiểm tra token thủ công
+            auth_header = request.headers.get('Authorization')
+            if not auth_header:
+                return jsonify({
+                    'success': False,
+                    'message': 'Không tìm thấy Authorization header',
+                    'email': None,
+                    'function_name': 'get_current_user_email',
+                    'status': 'no_auth_header',
+                    'debug': {
+                        'auth_header': None,
+                        'headers': dict(request.headers)
+                    }
+                }), 401
+            
+            # Thử decode thủ công để debug
+            try:
+                parts = auth_header.split()
+                if len(parts) == 2:
+                    token = parts[1]
+                    decoded = decode_token(token)
+                    return jsonify({
+                        'success': False,
+                        'message': 'Hàm get_current_user_email() trả về None nhưng token decode được',
+                        'email': None,
+                        'function_name': 'get_current_user_email',
+                        'status': 'function_returned_none',
+                        'debug': {
+                            'decoded_token': decoded,
+                            'token_fields': list(decoded.keys()) if decoded else None,
+                            'sub_field': decoded.get('sub') if decoded else None,
+                            'email_field': decoded.get('email') if decoded else None
+                        }
+                    }), 200
+            except Exception as debug_error:
+                logger.error(f"Debug decode error: {debug_error}")
+            
+            return jsonify({
+                'success': False,
+                'message': 'Hàm get_current_user_email() trả về None',
+                'email': None,
+                'function_name': 'get_current_user_email',
+                'status': 'returned_none'
+            }), 401
+        
+    except Exception as e:
+        logger.error(f"[ERROR] Test token endpoint failed: {e}", exc_info=True)
+        return jsonify({
+            'success': False,
+            'error': 'Internal server error',
+            'message': str(e),
+            'function_name': 'get_current_user_email',
+            'status': 'exception'
+        }), 500

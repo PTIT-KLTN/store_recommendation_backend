@@ -22,8 +22,8 @@
    - [Clear All Allergies](#4-clear-all-allergies)
 5. [Response Format](#response-format)
 6. [Error Handling](#error-handling)
-7. [Frontend Integration Examples](#frontend-integration-examples)
-8. [Rate Limits & Best Practices](#rate-limits--best-practices)
+7. [Rate Limits](#rate-limits)
+8. [Testing & Debugging](#testing--debugging)
 
 ---
 
@@ -77,7 +77,7 @@ Content-Type: application/json
 
 ```json
 {
-  "user_input": "Tôi muốn nấu phở bò"
+  "user_input": "Tôi muốn nấu canh cua chua ăn kèm với cam"
 }
 ```
 
@@ -89,74 +89,241 @@ Content-Type: application/json
 
 ```json
 {
-  "success": true,
-  "result": {
-    "status": "success",
+    "cart": {
+        "items": [
+            {
+                "category": "seafood_&_fish_balls",
+                "ingredient_id": "ingre01344",
+                "name_vi": "Cua đồng",
+                "note": null,
+                "quantity": "500 g",
+                "unit": "g"
+            },
+            {
+                "category": "vegetables",
+                "ingredient_id": "ingre01354",
+                "name_vi": "Cà chua",
+                "note": null,
+                "quantity": "200 g",
+                "unit": "g"
+            },
+            {
+                "category": "vegetables",
+                "ingredient_id": "ingre05383",
+                "name_vi": "Rau thì là",
+                "note": null,
+                "quantity": "200 g",
+                "unit": "g"
+            },
+            {
+                "category": "vegetables",
+                "ingredient_id": "ingre02768",
+                "name_vi": "Hành tím",
+                "note": null,
+                "quantity": "300 g",
+                "unit": "g"
+            },
+            {
+                "category": "fresh_fruits",
+                "ingredient_id": "ingre03644",
+                "name_vi": "Mẻ chua",
+                "note": null,
+                "quantity": "15 ml",
+                "unit": "ml"
+            },
+            {
+                "category": "others",
+                "ingredient_id": "ingre04687",
+                "name_vi": "Nước mắm",
+                "note": null,
+                "quantity": "45 ml",
+                "unit": "ml"
+            },
+            {
+                "category": "snacks",
+                "ingredient_id": "ingre02093",
+                "name_vi": "Dầu màu điều",
+                "note": null,
+                "quantity": "5 ml",
+                "unit": "ml"
+            },
+            {
+                "category": "fresh_fruits",
+                "ingredient_id": "ingre01972",
+                "name_vi": "Dầu ăn",
+                "note": null,
+                "quantity": "30 ml",
+                "unit": "ml"
+            },
+            {
+                "category": "seasonings",
+                "ingredient_id": "ingre03736",
+                "name_vi": "Muối/ tiêu xay",
+                "note": null,
+                "quantity": "1 g",
+                "unit": "g"
+            },
+            {
+                "category": "fresh_fruits",
+                "ingredient_id": "ingre01046",
+                "name_vi": "cam",
+                "note": null,
+                "quantity": "tùy thích",
+                "unit": "tùy thích"
+            }
+        ],
+        "total_items": 10
+    },
+    "dish": {
+        "name": "Canh cua chua",
+        "prep_time": null,
+        "servings": null
+    },
     "error": null,
     "error_type": null,
-    "dish": {
-      "name": "Phở bò",
-      "prep_time": "45 phút",
-      "servings": 4
+    "guardrail": {
+        "action": "allow",
+        "request_id": "06946a7e-b5d0-4da9-b297-ce7ceca45ade",
+        "timestamp": "2025-11-01T00:19:07.658929Z",
+        "triggered": false,
+        "violation_codes": [],
+        "violation_count": 0
     },
-    "cart": {
-      "total_items": 12,
-      "items": [
+    "insights": [
+        "Theo khuyến cáo dân gian: cua ăn cùng cam/quýt dễ sinh khó chịu đường tiêu hóa."
+    ],
+    "message": null,
+    "similar_dishes": [
         {
-          "ingredient_id": "ing_001",
-          "name_vi": "Bánh phở",
-          "name_en": "Rice noodles",
-          "quantity": "500",
-          "unit": "gram",
-          "category": "grains",
-          "estimated_price": 15000
+            "dish_id": "dish0109",
+            "dish_name": "Canh cua chua",
+            "match_count": 5,
+            "match_ratio": 0.5555555555555556,
+            "matched_roles": [
+                "core_produce",
+                "core_protein",
+                "flavor_enhancer"
+            ],
+            "required_roles": [
+                "core_produce",
+                "core_protein"
+            ],
+            "role_coverage": 1.0,
+            "weighted_score": 0.6470588235294118
         },
         {
-          "ingredient_id": "ing_002",
-          "name_vi": "Thịt bò",
-          "name_en": "Beef",
-          "quantity": "300",
-          "unit": "gram",
-          "category": "protein",
-          "estimated_price": 120000
+            "dish_id": "dish0011",
+            "dish_name": "Canh riêu cá",
+            "match_count": 3,
+            "match_ratio": 0.2727272727272727,
+            "matched_roles": [
+                "core_produce"
+            ],
+            "required_roles": [
+                "core_produce",
+                "core_protein"
+            ],
+            "role_coverage": 0.5,
+            "weighted_score": 0.38095238095238093
+        },
+        {
+            "dish_id": "dish0793",
+            "dish_name": "Hàu nấu canh chua",
+            "match_count": 3,
+            "match_ratio": 0.375,
+            "matched_roles": [
+                "core_produce"
+            ],
+            "required_roles": [
+                "core_produce",
+                "core_protein"
+            ],
+            "role_coverage": 0.5,
+            "weighted_score": 0.3333333333333333
         }
-      ]
-    },
-    "suggestions": [
-      {
-        "ingredient_id": "ing_050",
-        "name_vi": "Rau thơm",
-        "name_en": "Herbs",
-        "score": 0.85,
-        "reason": "Thường ăn kèm với phở"
-      }
     ],
-    "similar_dishes": [
-      {
-        "dish_id": "dish_123",
-        "name": "Bún bò Huế",
-        "match_count": 8,
-        "common_ingredients": ["thịt bò", "nước dùng"]
-      }
+    "status": "success",
+    "suggestions": [
+        {
+            "category": "others",
+            "ingredient_id": "ingre04166",
+            "name_vi": "mẻ chua",
+            "note": null,
+            "quantity": "tùy thích",
+            "unit": "tùy thích"
+        },
+        {
+            "category": "fresh_meat",
+            "ingredient_id": "ingre06856",
+            "name_vi": "trứng vịt lộn",
+            "note": null,
+            "quantity": "tùy thích",
+            "unit": "tùy thích"
+        },
+        {
+            "category": "vegetables",
+            "ingredient_id": "ingre05239",
+            "name_vi": "rau cần nước",
+            "note": null,
+            "quantity": "tùy thích",
+            "unit": "tùy thích"
+        },
+        {
+            "category": "vegetables",
+            "ingredient_id": "ingre05410",
+            "name_vi": "rau xà lách",
+            "note": null,
+            "quantity": "tùy thích",
+            "unit": "tùy thích"
+        },
+        {
+            "category": "grains_staples",
+            "ingredient_id": "ingre00357",
+            "name_vi": "bún tươi",
+            "note": null,
+            "quantity": "tùy thích",
+            "unit": "tùy thích"
+        }
     ],
     "warnings": [
-      {
-        "message": "Không nên kết hợp bò với sữa",
-        "severity": "warning",
-        "source": "conflict_detection"
-      }
-    ],
-    "insights": [
-      {
-        "type": "nutrition",
-        "message": "Món ăn giàu protein và carbohydrate"
-      }
-    ],
-    "guardrail": {
-      "triggered": false,
-      "action": "allow"
-    }
-  }
+        {
+            "details": {
+                "conflict_type": "ingredient_ingredient",
+                "conflicting_item_1": [
+                    "Cua đồng"
+                ],
+                "conflicting_item_2": [
+                    "cam"
+                ],
+                "id": "cua-cam-quyt",
+                "message": "Theo khuyến cáo dân gian: cua ăn cùng cam/quýt dễ sinh khó chịu đường tiêu hóa.",
+                "replacement_suggestions": [
+                    {
+                        "category": "fresh_fruits",
+                        "ingredient_id": "ingre00040",
+                        "name_en": "Blueberries",
+                        "name_vi": "blueberries:"
+                    },
+                    {
+                        "category": "fresh_fruits",
+                        "ingredient_id": "ingre00230",
+                        "name_en": "Zucchini",
+                        "name_vi": "bầu"
+                    }
+                ],
+                "severity": "low",
+                "sources": [
+                    {
+                        "name": "CDC Quảng Ninh",
+                        "url": "https://www.quangninhcdc.vn/93-cap-thuc-pham-ky-nhau-va-cach-giai-doc/"
+                    }
+                ]
+            },
+            "message": "Theo khuyến cáo dân gian: cua ăn cùng cam/quýt dễ sinh khó chịu đường tiêu hóa.",
+            "severity": "low",
+            "source": "conflict"
+        }
+    ]
 }
 ```
 
@@ -183,47 +350,11 @@ Content-Type: application/json
 ```json
 {
   "success": false,
-  "error": "AI Service request timeout"
+  "error": "No response from AI Service within 30 seconds"
 }
 ```
 
-#### Example Usage (JavaScript)
-
-```javascript
-const analyzeRecipe = async (userInput) => {
-  try {
-    const response = await fetch('http://100.85.88.111:5000/api/v1/ai/recipe-analysis', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        user_input: userInput
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      const result = data.result;
-      console.log('Món ăn:', result.dish.name);
-      console.log('Số nguyên liệu:', result.cart.total_items);
-      
-      // Display cart items
-      result.cart.items.forEach(item => {
-        console.log(`- ${item.name_vi}: ${item.quantity} ${item.unit}`);
-      });
-    } else {
-      console.error('Error:', data.error);
-    }
-  } catch (error) {
-    console.error('Network error:', error);
-  }
-};
-
-// Usage
-analyzeRecipe('Tôi muốn nấu phở bò');
-```
+> **Note về Timeout:** Khi timeout xảy ra, AI Service có thể vẫn đang xử lý request. Response trả về muộn sẽ được consumer nhận nhưng không được trả về cho request đã timeout (để tránh race condition). Request tiếp theo sẽ không bị ảnh hưởng do correlation_id được reset.
 
 ---
 
@@ -363,48 +494,6 @@ Response format giống y hệt [Text Analysis](#1-text-analysis), bao gồm 10 
 }
 ```
 
-#### Example Usage (JavaScript)
-
-```javascript
-const analyzeImageByUrl = async (s3Url, description = '') => {
-  try {
-    const response = await fetch('http://100.85.88.111:5000/api/v1/ai/image-analysis', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        s3_url: s3Url,
-        description: description
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success && data.result.status === 'success') {
-      const result = data.result;
-      return {
-        success: true,
-        dish: result.dish,
-        cart: result.cart,
-        suggestions: result.suggestions
-      };
-    } else {
-      return {
-        success: false,
-        error: data.result?.error || data.error
-      };
-    }
-  } catch (error) {
-    console.error('Network error:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Usage
-analyzeImageByUrl('abc123.jpg', 'Phở bò Việt Nam');
-```
-
 ---
 
 ### 3. Upload & Analyze Image
@@ -497,183 +586,6 @@ Giống [Image Analysis](#2-image-analysis-with-s3-url) nhưng có thêm field `
 }
 ```
 
-#### Example Usage (JavaScript with FormData)
-
-```javascript
-const uploadAndAnalyze = async (imageFile, description = '') => {
-  try {
-    const formData = new FormData();
-    formData.append('image', imageFile);
-    
-    if (description) {
-      formData.append('description', description);
-    }
-    
-    const response = await fetch('http://100.85.88.111:5000/api/v1/ai/upload-and-analyze', {
-      method: 'POST',
-      body: formData
-      // Don't set Content-Type header - browser will set it automatically with boundary
-    });
-    
-    const data = await response.json();
-    
-    if (data.success && data.result.status === 'success') {
-      const result = data.result;
-      return {
-        success: true,
-        s3Key: result.s3_key,
-        dish: result.dish,
-        cart: result.cart,
-        suggestions: result.suggestions,
-        warnings: result.warnings
-      };
-    } else {
-      return {
-        success: false,
-        error: data.result?.error || data.error,
-        errorType: data.result?.error_type
-      };
-    }
-  } catch (error) {
-    console.error('Upload error:', error);
-    return { success: false, error: error.message };
-  }
-};
-
-// Usage with file input
-const handleFileUpload = async (event) => {
-  const file = event.target.files[0];
-  
-  if (!file) return;
-  
-  // Validate file size
-  if (file.size > 10 * 1024 * 1024) {
-    alert('File quá lớn! Tối đa 10MB');
-    return;
-  }
-  
-  // Validate file type
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  if (!allowedTypes.includes(file.type)) {
-    alert('File không hợp lệ! Chỉ chấp nhận JPG, PNG, WEBP, GIF');
-    return;
-  }
-  
-  // Upload and analyze
-  const result = await uploadAndAnalyze(file, 'Món ăn Việt Nam');
-  
-  if (result.success) {
-    console.log('Món ăn:', result.dish.name);
-    console.log('S3 Key:', result.s3Key);
-    console.log('Nguyên liệu:', result.cart.items);
-  } else {
-    console.error('Error:', result.error);
-    
-    if (result.errorType === 'dish_not_found') {
-      alert('Không nhận diện được món ăn. Vui lòng thử ảnh rõ hơn!');
-    } else if (result.errorType === 'guardrail_violation') {
-      alert('Hình ảnh không phù hợp!');
-    }
-  }
-};
-```
-
-#### Example Usage (React Component)
-
-```jsx
-import React, { useState } from 'react';
-
-function ImageUploadAnalyzer() {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-
-  const handleFileChange = async (event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    // Validate
-    if (file.size > 10 * 1024 * 1024) {
-      setError('File quá lớn! Tối đa 10MB');
-      return;
-    }
-
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('image', file);
-      formData.append('description', 'Món ăn Việt Nam');
-
-      const response = await fetch(
-        'http://100.85.88.111:5000/api/v1/ai/upload-and-analyze',
-        {
-          method: 'POST',
-          body: formData
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success && data.result.status === 'success') {
-        setResult(data.result);
-      } else {
-        setError(data.result?.error || 'Có lỗi xảy ra');
-      }
-    } catch (err) {
-      setError('Lỗi kết nối: ' + err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div>
-      <input
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        onChange={handleFileChange}
-        disabled={loading}
-      />
-
-      {loading && <p>Đang phân tích hình ảnh...</p>}
-
-      {error && <div className="error">{error}</div>}
-
-      {result && (
-        <div className="result">
-          <h2>{result.dish.name}</h2>
-          <p>Thời gian: {result.dish.prep_time}</p>
-          <p>Khẩu phần: {result.dish.servings} người</p>
-
-          <h3>Nguyên liệu ({result.cart.total_items}):</h3>
-          <ul>
-            {result.cart.items.map((item, idx) => (
-              <li key={idx}>
-                {item.name_vi}: {item.quantity} {item.unit}
-              </li>
-            ))}
-          </ul>
-
-          {result.warnings.length > 0 && (
-            <div className="warnings">
-              <h3>⚠️ Cảnh báo:</h3>
-              {result.warnings.map((w, idx) => (
-                <p key={idx}>{w.message}</p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default ImageUploadAnalyzer;
-```
-
 ---
 
 ### 4. Health Check
@@ -707,31 +619,6 @@ GET /api/v1/ai/recipe-analysis/health
   "ai_service_connected": false,
   "error": "Connection timeout"
 }
-```
-
-#### Example Usage (JavaScript)
-
-```javascript
-const checkHealth = async () => {
-  try {
-    const response = await fetch('http://100.85.88.111:5000/api/v1/ai/recipe-analysis/health');
-    const data = await response.json();
-    
-    if (data.status === 'healthy') {
-      console.log('✅ Service is healthy');
-    } else {
-      console.warn('⚠️ Service is unhealthy:', data.error);
-    }
-    
-    return data;
-  } catch (error) {
-    console.error('❌ Health check failed:', error);
-    return { status: 'error', error: error.message };
-  }
-};
-
-// Check health every 30 seconds
-setInterval(checkHealth, 30000);
 ```
 
 ---
@@ -783,28 +670,6 @@ Authorization: Bearer <access_token>
   ],
   "total": 2
 }
-```
-
-#### Example (JavaScript)
-
-```javascript
-const getUserAllergies = async () => {
-  const token = localStorage.getItem('access_token');
-  
-  const response = await fetch('http://100.85.88.111:5000/api/v1/user/allergies', {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  
-  const data = await response.json();
-  
-  if (data.success) {
-    console.log('User allergies:', data.allergies);
-    return data.allergies;
-  }
-};
 ```
 
 ---
@@ -868,40 +733,6 @@ Content-Type: application/json
 }
 ```
 
-#### Example (JavaScript)
-
-```javascript
-const addAllergy = async (allergyData) => {
-  const token = localStorage.getItem('access_token');
-  
-  const response = await fetch('http://100.85.88.111:5000/api/v1/user/allergies', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(allergyData)
-  });
-  
-  const data = await response.json();
-  
-  if (data.success) {
-    console.log('Allergy added:', data.allergy);
-  } else {
-    console.error('Error:', data.error);
-  }
-  
-  return data;
-};
-
-// Usage
-await addAllergy({
-  name_vi: 'Đậu phộng',
-  name_en: 'Peanut',
-  category: 'nuts'
-});
-```
-
 ---
 
 ### 3. Remove Allergy
@@ -951,38 +782,6 @@ Content-Type: application/json
 }
 ```
 
-#### Example (JavaScript)
-
-```javascript
-const removeAllergy = async (allergyName) => {
-  const token = localStorage.getItem('access_token');
-  
-  const response = await fetch('http://100.85.88.111:5000/api/v1/user/allergies', {
-    method: 'DELETE',
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      name_vi: allergyName
-    })
-  });
-  
-  const data = await response.json();
-  
-  if (data.success) {
-    console.log('Allergy removed');
-  } else {
-    console.error('Error:', data.error);
-  }
-  
-  return data;
-};
-
-// Usage
-await removeAllergy('Đậu phộng');
-```
-
 ---
 
 ### 4. Clear All Allergies
@@ -1008,29 +807,6 @@ Authorization: Bearer <access_token>
   "success": true,
   "message": "All allergies cleared successfully"
 }
-```
-
-#### Example (JavaScript)
-
-```javascript
-const clearAllAllergies = async () => {
-  const token = localStorage.getItem('access_token');
-  
-  const response = await fetch('http://100.85.88.111:5000/api/v1/user/allergies/clear', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${token}`
-    }
-  });
-  
-  const data = await response.json();
-  
-  if (data.success) {
-    console.log('All allergies cleared');
-  }
-  
-  return data;
-};
 ```
 
 ---
@@ -1074,119 +850,6 @@ Khi user **đã đăng nhập** và gọi AI analysis endpoints (text hoặc ima
     }
   ]
 }
-```
-
-#### Complete React Example với Allergy Management
-
-```jsx
-import React, { useState, useEffect } from 'react';
-
-function AllergyManager() {
-  const [allergies, setAllergies] = useState([]);
-  const [newAllergy, setNewAllergy] = useState('');
-  const token = localStorage.getItem('access_token');
-
-  // Fetch allergies on mount
-  useEffect(() => {
-    fetchAllergies();
-  }, []);
-
-  const fetchAllergies = async () => {
-    const response = await fetch('http://100.85.88.111:5000/api/v1/user/allergies', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    const data = await response.json();
-    if (data.success) {
-      setAllergies(data.allergies);
-    }
-  };
-
-  const handleAddAllergy = async (e) => {
-    e.preventDefault();
-    
-    const response = await fetch('http://100.85.88.111:5000/api/v1/user/allergies', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name_vi: newAllergy
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      setAllergies([...allergies, data.allergy]);
-      setNewAllergy('');
-    } else {
-      alert(data.error);
-    }
-  };
-
-  const handleRemoveAllergy = async (allergyName) => {
-    const response = await fetch('http://100.85.88.111:5000/api/v1/user/allergies', {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        name_vi: allergyName
-      })
-    });
-    
-    const data = await response.json();
-    
-    if (data.success) {
-      setAllergies(allergies.filter(a => a.name_vi !== allergyName));
-    }
-  };
-
-  return (
-    <div className="allergy-manager">
-      <h2>Quản lý dị ứng</h2>
-      
-      {/* Add allergy form */}
-      <form onSubmit={handleAddAllergy}>
-        <input
-          type="text"
-          value={newAllergy}
-          onChange={(e) => setNewAllergy(e.target.value)}
-          placeholder="Nhập tên nguyên liệu (vd: Đậu phộng)"
-          required
-        />
-        <button type="submit">Thêm dị ứng</button>
-      </form>
-
-      {/* Allergy list */}
-      <div className="allergies-list">
-        <h3>Danh sách dị ứng ({allergies.length}):</h3>
-        {allergies.length === 0 ? (
-          <p>Chưa có dị ứng nào</p>
-        ) : (
-          <ul>
-            {allergies.map((allergy, idx) => (
-              <li key={idx}>
-                <span>{allergy.name_vi}</span>
-                {allergy.name_en && <span> ({allergy.name_en})</span>}
-                <button onClick={() => handleRemoveAllergy(allergy.name_vi)}>
-                  Xóa
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default AllergyManager;
 ```
 
 ---
@@ -1297,284 +960,22 @@ Tất cả AI analysis endpoints trả về **10 fields cố định** trong `re
 | `timeout` | 504 | Request timeout | "Xử lý quá lâu. Vui lòng thử lại!" |
 | `unknown` | 500 | Lỗi không xác định | "Có lỗi xảy ra. Vui lòng thử lại!" |
 
-### Error Handling Best Practices
+### Timeout Behavior
 
-```javascript
-const handleApiError = (data, httpStatus) => {
-  // Check outer success flag
-  if (!data.success) {
-    // Network or server error
-    console.error('API Error:', data.error);
-    return {
-      userMessage: 'Không thể kết nối tới server. Vui lòng thử lại!',
-      canRetry: true
-    };
-  }
-  
-  // Check inner result status
-  const result = data.result;
-  
-  if (result.status === 'success') {
-    return { success: true, data: result };
-  }
-  
-  // Handle specific error types
-  switch (result.error_type) {
-    case 'dish_not_found':
-      return {
-        userMessage: 'Không nhận diện được món ăn trong hình ảnh. Vui lòng thử ảnh rõ hơn hoặc thêm mô tả!',
-        canRetry: true,
-        suggestion: 'Try uploading a clearer image or add text description'
-      };
-      
-    case 'recipe_not_found':
-      return {
-        userMessage: `Hiện chưa có công thức cho món "${result.dish.name}". Bạn có muốn thử món khác không?`,
-        canRetry: false
-      };
-      
-    case 'guardrail_violation':
-      return {
-        userMessage: 'Hình ảnh không phù hợp hoặc vi phạm chính sách. Vui lòng thử ảnh khác!',
-        canRetry: true,
-        shouldBlock: true
-      };
-      
-    case 'image_download_failed':
-      return {
-        userMessage: 'Không thể tải hình ảnh. Vui lòng thử lại!',
-        canRetry: true
-      };
-      
-    case 'timeout':
-      return {
-        userMessage: 'Xử lý hình ảnh đang mất nhiều thời gian. Vui lòng thử lại hoặc dùng ảnh nhỏ hơn!',
-        canRetry: true
-      };
-      
-    default:
-      return {
-        userMessage: result.message || 'Có lỗi xảy ra. Vui lòng thử lại sau!',
-        canRetry: true
-      };
-  }
-};
+Khi request timeout (30 giây):
+- ✅ Client sẽ raise `TimeoutError` và không đợi response
+- ✅ Callback queue sẽ được **xóa và tạo lại** để tránh nhận response muộn
+- ✅ Request tiếp theo sẽ không bị ảnh hưởng bởi response của request đã timeout
+- ⚠️ AI Service có thể vẫn đang xử lý - response muộn sẽ bị loại bỏ
 
-// Usage
-const result = await uploadAndAnalyze(file);
-const errorInfo = handleApiError(result, response.status);
-
-if (errorInfo.success) {
-  // Display success UI
-  displayRecipeResult(errorInfo.data);
-} else {
-  // Display error UI
-  showErrorMessage(errorInfo.userMessage);
-  
-  if (errorInfo.canRetry) {
-    showRetryButton();
-  }
-  
-  if (errorInfo.shouldBlock) {
-    // Block user temporarily or log incident
-    logContentViolation(userId);
-  }
-}
-```
+**Recommendation:** Nếu gặp timeout thường xuyên:
+1. Sử dụng hình ảnh nhỏ hơn (< 5MB)
+2. Thêm mô tả text để AI xử lý nhanh hơn
+3. Thử lại sau vài giây
 
 ---
 
-## Frontend Integration Examples
-
-### Complete React Hook Example
-
-```jsx
-import { useState, useCallback } from 'react';
-
-const API_BASE_URL = 'http://100.85.88.111:5000';
-
-export function useRecipeAnalysis() {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
-  const [error, setError] = useState(null);
-
-  // Text analysis
-  const analyzeText = useCallback(async (userInput) => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/ai/recipe-analysis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_input: userInput })
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.result.status === 'success') {
-        setResult(data.result);
-        return { success: true, data: data.result };
-      } else {
-        const errorMsg = data.result?.error || data.error || 'Unknown error';
-        setError(errorMsg);
-        return { success: false, error: errorMsg };
-      }
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // Image analysis (upload)
-  const analyzeImage = useCallback(async (imageFile, description = '') => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-
-    try {
-      // Validate file
-      if (imageFile.size > 10 * 1024 * 1024) {
-        throw new Error('File quá lớn! Tối đa 10MB');
-      }
-
-      const formData = new FormData();
-      formData.append('image', imageFile);
-      if (description) {
-        formData.append('description', description);
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/v1/ai/upload-and-analyze`, {
-        method: 'POST',
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.result.status === 'success') {
-        setResult(data.result);
-        return { success: true, data: data.result };
-      } else {
-        const errorMsg = data.result?.error || data.error || 'Unknown error';
-        setError(errorMsg);
-        return { 
-          success: false, 
-          error: errorMsg,
-          errorType: data.result?.error_type 
-        };
-      }
-    } catch (err) {
-      setError(err.message);
-      return { success: false, error: err.message };
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  return {
-    loading,
-    result,
-    error,
-    analyzeText,
-    analyzeImage
-  };
-}
-
-// Usage in component
-function RecipeAnalyzer() {
-  const { loading, result, error, analyzeText, analyzeImage } = useRecipeAnalysis();
-  const [inputText, setInputText] = useState('');
-
-  const handleTextSubmit = async (e) => {
-    e.preventDefault();
-    await analyzeText(inputText);
-  };
-
-  const handleImageUpload = async (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      await analyzeImage(file, 'Món ăn Việt Nam');
-    }
-  };
-
-  return (
-    <div>
-      {/* Text Input */}
-      <form onSubmit={handleTextSubmit}>
-        <input
-          type="text"
-          value={inputText}
-          onChange={(e) => setInputText(e.target.value)}
-          placeholder="Nhập tên món ăn..."
-          disabled={loading}
-        />
-        <button type="submit" disabled={loading}>
-          Phân tích
-        </button>
-      </form>
-
-      {/* Image Upload */}
-      <input
-        type="file"
-        accept="image/*"
-        onChange={handleImageUpload}
-        disabled={loading}
-      />
-
-      {/* Loading State */}
-      {loading && <p>Đang phân tích...</p>}
-
-      {/* Error State */}
-      {error && <div className="error">{error}</div>}
-
-      {/* Success State */}
-      {result && (
-        <div className="result">
-          <h2>{result.dish.name}</h2>
-          <p>Thời gian: {result.dish.prep_time}</p>
-          
-          <h3>Nguyên liệu ({result.cart.total_items}):</h3>
-          <ul>
-            {result.cart.items.map((item, idx) => (
-              <li key={idx}>
-                {item.name_vi}: {item.quantity} {item.unit}
-                {item.estimated_price && ` - ${item.estimated_price.toLocaleString()} VND`}
-              </li>
-            ))}
-          </ul>
-
-          {result.suggestions.length > 0 && (
-            <div>
-              <h3>Gợi ý thêm:</h3>
-              {result.suggestions.map((s, idx) => (
-                <p key={idx}>{s.name_vi} - {s.reason}</p>
-              ))}
-            </div>
-          )}
-
-          {result.warnings.length > 0 && (
-            <div className="warnings">
-              <h3>⚠️ Cảnh báo:</h3>
-              {result.warnings.map((w, idx) => (
-                <p key={idx}>{w.message}</p>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
----
-
-## Rate Limits & Best Practices
+## Rate Limits
 
 ### Current Limits
 
@@ -1584,185 +985,14 @@ function RecipeAnalyzer() {
 | Image Upload | Unlimited | Per IP |
 | Max File Size | 10MB | Per request |
 | Request Timeout | 30 seconds | Per request |
+| Concurrent Requests | 1 per connection | Per AI client instance |
 
 > **Note:** Rate limiting sẽ được implement trong tương lai
 
-### Best Practices
-
-#### 1. **Validate trước khi gửi request**
-
-```javascript
-const validateImageFile = (file) => {
-  const maxSize = 10 * 1024 * 1024; // 10MB
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  
-  if (!file) {
-    return { valid: false, error: 'Chưa chọn file' };
-  }
-  
-  if (file.size > maxSize) {
-    return { valid: false, error: 'File quá lớn (max 10MB)' };
-  }
-  
-  if (!allowedTypes.includes(file.type)) {
-    return { valid: false, error: 'Định dạng không hợp lệ' };
-  }
-  
-  return { valid: true };
-};
-```
-
-#### 2. **Implement timeout và retry logic**
-
-```javascript
-const fetchWithTimeout = async (url, options, timeout = 30000) => {
-  const controller = new AbortController();
-  const id = setTimeout(() => controller.abort(), timeout);
-  
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal
-    });
-    clearTimeout(id);
-    return response;
-  } catch (error) {
-    clearTimeout(id);
-    if (error.name === 'AbortError') {
-      throw new Error('Request timeout');
-    }
-    throw error;
-  }
-};
-
-const retryRequest = async (requestFn, maxRetries = 3) => {
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      return await requestFn();
-    } catch (error) {
-      if (i === maxRetries - 1) throw error;
-      
-      // Exponential backoff
-      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
-    }
-  }
-};
-```
-
-#### 3. **Optimize hình ảnh trước khi upload**
-
-```javascript
-const compressImage = async (file, maxWidth = 1920, maxHeight = 1080, quality = 0.8) => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-        
-        // Calculate new dimensions
-        if (width > maxWidth || height > maxHeight) {
-          const ratio = Math.min(maxWidth / width, maxHeight / height);
-          width *= ratio;
-          height *= ratio;
-        }
-        
-        canvas.width = width;
-        canvas.height = height;
-        
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, width, height);
-        
-        canvas.toBlob((blob) => {
-          resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-        }, 'image/jpeg', quality);
-      };
-      img.src = e.target.result;
-    };
-    reader.readAsDataURL(file);
-  });
-};
-
-// Usage
-const handleImageUpload = async (file) => {
-  // Compress if too large
-  if (file.size > 5 * 1024 * 1024) {
-    file = await compressImage(file);
-  }
-  
-  await analyzeImage(file);
-};
-```
-
-#### 4. **Cache kết quả để giảm API calls**
-
-```javascript
-const recipeCache = new Map();
-
-const analyzeWithCache = async (key, analysisFn) => {
-  // Check cache
-  if (recipeCache.has(key)) {
-    console.log('Cache hit:', key);
-    return recipeCache.get(key);
-  }
-  
-  // Call API
-  const result = await analysisFn();
-  
-  // Store in cache (expires after 1 hour)
-  recipeCache.set(key, result);
-  setTimeout(() => recipeCache.delete(key), 60 * 60 * 1000);
-  
-  return result;
-};
-
-// Usage
-const result = await analyzeWithCache(
-  `text:${userInput}`,
-  () => analyzeText(userInput)
-);
-```
-
-#### 5. **Hiển thị progress cho image upload**
-
-```javascript
-const uploadWithProgress = async (file, onProgress) => {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    
-    xhr.upload.addEventListener('progress', (e) => {
-      if (e.lengthComputable) {
-        const percentage = (e.loaded / e.total) * 100;
-        onProgress(percentage);
-      }
-    });
-    
-    xhr.addEventListener('load', () => {
-      if (xhr.status === 200) {
-        resolve(JSON.parse(xhr.responseText));
-      } else {
-        reject(new Error('Upload failed'));
-      }
-    });
-    
-    xhr.addEventListener('error', () => reject(new Error('Network error')));
-    
-    const formData = new FormData();
-    formData.append('image', file);
-    
-    xhr.open('POST', `${API_BASE_URL}/api/v1/ai/upload-and-analyze`);
-    xhr.send(formData);
-  });
-};
-
-// Usage
-await uploadWithProgress(file, (progress) => {
-  console.log(`Upload progress: ${progress}%`);
-  setUploadProgress(progress);
-});
-```
+> **Technical Note - RabbitMQ Timeout:** 
+> - Client sử dụng blocking connection với correlation_id để track requests
+> - Khi timeout, callback queue được xóa và tạo lại để loại bỏ response muộn
+> - Mỗi request mới sẽ purge queue trước khi gửi để đảm bảo sạch sẽ
 
 ---
 
@@ -1790,19 +1020,6 @@ curl -X POST http://100.85.88.111:5000/api/v1/ai/upload-and-analyze \
   -F "description=Phở bò Việt Nam"
 ```
 
-### Browser Console Testing
-
-```javascript
-// Test text analysis
-fetch('http://100.85.88.111:5000/api/v1/ai/recipe-analysis', {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ user_input: 'Tôi muốn nấu phở bò' })
-})
-.then(r => r.json())
-.then(console.log);
-```
-
 ---
 
 ## Support & Contact
@@ -1817,9 +1034,22 @@ fetch('http://100.85.88.111:5000/api/v1/ai/recipe-analysis', {
 ### Response Time
 - **Text Analysis:** 3-8 seconds
 - **Image Analysis:** 10-25 seconds
+- **Timeout:** 30 seconds (configurable via `AI_SERVICE_TIMEOUT` env var)
+
+### Technical Architecture Notes
+
+#### RabbitMQ Client Behavior
+- **Connection:** Persistent BlockingConnection với heartbeat 600s
+- **Reply Queue:** Exclusive, auto-delete queue (rotated after timeout)
+- **Correlation ID:** UUID v4 để track từng request
+- **Timeout Handling:** 
+  - Client purge queue trước mỗi request mới
+  - Khi timeout, xóa callback queue cũ và tạo queue mới
+  - Response muộn sẽ không được nhận bởi request tiếp theo
+- **Thread Safety:** Request serialization với `threading.Lock`
 
 ---
 
-**Document Version:** 2.0  
-**Last Updated:** October 31, 2025  
+**Document Version:** 2.1  
+**Last Updated:** November 1, 2025  
 **Maintained by:** Backend Development Team
