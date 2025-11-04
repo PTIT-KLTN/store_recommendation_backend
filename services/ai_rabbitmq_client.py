@@ -25,13 +25,13 @@ class AIServiceClient:
         timeout: int = 100
     ):
 
-        self.host = host or os.getenv('RABBITMQ_HOST', 'localhost')
-        self.port = port or int(os.getenv('RABBITMQ_PORT', 5672))
-        self.username = username or os.getenv('RABBITMQ_USERNAME', 'guest')
-        self.password = password or os.getenv('RABBITMQ_PASSWORD', 'guest')
+        self.host = host or os.getenv('RABBITMQ_HOST')
+        self.port = port or int(os.getenv('RABBITMQ_PORT'))
+        self.username = username or os.getenv('RABBITMQ_USERNAME')
+        self.password = password or os.getenv('RABBITMQ_PASSWORD')
         self.virtual_host = virtual_host
         self.timeout = timeout
-        self.queue_name = 'recipe_analysis_request'
+        self.queue_name = os.getenv('AI_QUEUE_NAME')
         
         # Connection parameters
         credentials = pika.PlainCredentials(self.username, self.password)
