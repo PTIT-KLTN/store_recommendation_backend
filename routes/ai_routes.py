@@ -1,6 +1,5 @@
 from flask import Blueprint, request, jsonify
-from services.rabbitmq_service import rabbitmq_service
-from services.ai_rabbitmq_client import get_ai_service_client
+from services.ai_service import get_ai_service_client
 from services.s3_service import get_s3_service
 from services.allergy_service import get_allergy_service
 from utils.token_utils import decode_token
@@ -180,55 +179,6 @@ def detect_error_type(error_message: str, is_image: bool = False) -> str:
         return 'extraction_failed'
     
     return 'unknown'
-
-@ai_bp.route('/text', methods=['POST'])
-def process_text():
-    try:
-        data = request.get_json()
-        description = data.get('description')
-        
-        message = {
-            'modelType': 'text',
-            'requestMessage': description
-        }
-        
-        response = rabbitmq_service.send_message(message, timeout=100)
-        return jsonify(response), 200
-        
-    except TimeoutError:
-        return jsonify({'message': 'Request timeout'}), 504
-    except Exception as e:
-        return jsonify({'message': str(e)}), 500
-
-@ai_bp.route('/image', methods=['POST'])
-def process_image():
-    try:
-        if 'image' not in request.files:
-            return jsonify({'message': 'No image file provided'}), 400
-        
-        file = request.files['image']
-        if file.filename == '':
-            return jsonify({'message': 'No file selected'}), 400
-        
-        try:
-            s3_service = get_s3_service()
-            s3_key = s3_service.upload_image(file=file, filename=file.filename, content_type=file.content_type)
-        except Exception as e:
-            logger.error(f"Failed to upload image: {e}")
-            return jsonify({'message': f'Failed to upload image: {str(e)}'}), 500
-        
-        message = {
-            'modelType': 'image',
-            'fileName': s3_key
-        }
-        
-        response = rabbitmq_service.send_message(message, timeout=100)
-        return jsonify(response), 200
-        
-    except TimeoutError:
-        return jsonify({'message': 'Request timeout'}), 504
-    except Exception as e:
-        return jsonify({'message': str(e)}), 500
 
 
 @ai_bp.route('/recipe-analysis', methods=['POST'])

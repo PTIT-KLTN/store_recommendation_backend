@@ -9,6 +9,7 @@ from database.mongodb import MongoDBConnection
 crawling_bp = Blueprint('crawling', __name__)
 db = MongoDBConnection.get_primary_db()
 
+
 def get_user_or_401():
     user = get_jwt_identity()
     return user if user else None
