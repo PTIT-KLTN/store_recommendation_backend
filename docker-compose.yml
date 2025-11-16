@@ -2,9 +2,8 @@ services:
   mongodb:
     image: mongo:latest  
     container_name: markendation_mongo
-    ports:
-      - "127.0.0.1:27017:27017"                    # Local access
-      - "${RADMIN_IP}:${MONGODB_PORT}:27017"       # Radmin network access
+    ports:          
+      - "${TAILSCALE_IP}:${MONGODB_PORT}:27017"       # Radmin network access
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_INITDB_ROOT_USERNAME}  
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_INITDB_ROOT_PASSWORD}  
@@ -16,8 +15,7 @@ services:
       image: redis:7-alpine
       container_name: markendation_redis
       ports:
-        - "6379:6379"
-        - "${RADMIN_IP}:6379:6379"
+        - "${TAILSCALE_IP}:6380:6379"  
       volumes:
         - redis_data:/data
       command: redis-server --appendonly yes

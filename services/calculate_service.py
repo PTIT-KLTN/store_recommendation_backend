@@ -7,6 +7,30 @@ class CalculateService:
     def process_all_ingredients(self, basket_ingredients, basket_dishes):
         processed_ingredients = {}   
         
+        # Category normalization mapping (lowercase with underscores -> proper format)
+        NORMALIZED_CATEGORIES = {
+            'alcoholic_beverages': 'Alcoholic Beverages',
+            'beverages': 'Beverages',
+            'cakes': 'Cakes',
+            'candies': 'Candies',
+            'cereals_&_grains': 'Cereals & Grains',
+            'cold_cuts_sausages_&_ham': 'Cold Cuts: Sausages & Ham',
+            'dried_fruits': 'Dried Fruits',
+            'fresh_fruits': 'Fresh Fruits',
+            'fresh_meat': 'Fresh Meat',
+            'fruit_jam': 'Fruit Jam',
+            'grains_&_staples': 'Grains & Staples',
+            'grains_staples': 'Grains & Staples',  # Handle variant without &
+            'ice_cream_&_cheese': 'Ice Cream & Cheese',
+            'instant_foods': 'Instant Foods',
+            'milk': 'Milk',
+            'seafood_&_fish_balls': 'Seafood & Fish Balls',
+            'seasonings': 'Seasonings',
+            'snacks': 'Snacks',
+            'vegetables': 'Vegetables',
+            'yogurt': 'Yogurt'
+        }
+        
         # Process basket ingredients
         for ingredient in basket_ingredients:
             if isinstance(ingredient, dict) and ingredient.get('name'):
@@ -15,13 +39,17 @@ class CalculateService:
                 if not isinstance(quantity, (int, float)) or quantity <= 0:
                     quantity = 1
                 
-                # Loại bỏ net_unit_value khỏi ingredient vì không cần thiết
+                # Normalize category
+                category = ingredient.get('category', '')
+                normalized_key = category.lower().replace(' ', '_')
+                standardized_category = NORMALIZED_CATEGORIES.get(normalized_key, category)
+                
                 processed_ingredients[name] = {
                     'name': name,
-                    'category': ingredient.get('category', ''),
+                    'category': standardized_category,
                     'vietnamese_name': ingredient.get('vietnamese_name', ''),
                     'unit': ingredient.get('unit', ''),
-                    'total_quantity': quantity  # Chỉ cần quantity thôi
+                    'total_quantity': quantity
                 }
         
         # Process dish ingredients
@@ -38,14 +66,19 @@ class CalculateService:
                         # Tính total quantity dựa trên servings
                         total_dish_quantity = ingredient_quantity * dish_servings
                         
+                        # Normalize category
+                        category = dish_ingredient.get('category', '')
+                        normalized_key = category.lower().replace(' ', '_')
+                        standardized_category = NORMALIZED_CATEGORIES.get(normalized_key, category)
+                        
                         if name in processed_ingredients:
                             # Cộng dồn quantity nếu nguyên liệu đã tồn tại
                             processed_ingredients[name]['total_quantity'] += total_dish_quantity
                         else:
-                            # Tạo mới nếu chưa tồn tại, loại bỏ net_unit_value
+                            # Tạo mới nếu chưa tồn tại
                             processed_ingredients[name] = {
                                 'name': name,
-                                'category': dish_ingredient.get('category', ''),
+                                'category': standardized_category,
                                 'vietnamese_name': dish_ingredient.get('vietnamese_name', ''),
                                 'unit': ingredient_unit,
                                 'total_quantity': total_dish_quantity
@@ -164,6 +197,7 @@ class CalculateService:
             # Process each ingredient with its pre-computed info
             for ingredient_name, ingredient_info in processed_ingredients.items():
                 ingredient_category = ingredient_info.get('category', '')
+                # normalized_category = ingredient_category.lower().replace(' ', '_')
                 collection_name = CATEGORY_TO_COLLECTION.get(ingredient_category)
                 category_products = []
                 for store_id_format in [store_id, str(store_id), int(store_id)]:
