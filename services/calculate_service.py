@@ -41,7 +41,7 @@ class CalculateService:
                 
                 # Normalize category
                 category = ingredient.get('category', '')
-                normalized_key = category.lower().replace(' ', '_')
+                normalized_key = category.lower().replace(' ', '_').replace(':', '')
                 standardized_category = NORMALIZED_CATEGORIES.get(normalized_key, category)
                 
                 processed_ingredients[name] = {
@@ -68,7 +68,7 @@ class CalculateService:
                         
                         # Normalize category
                         category = dish_ingredient.get('category', '')
-                        normalized_key = category.lower().replace(' ', '_')
+                        normalized_key = category.lower().replace(' ', '_').replace(':', '')
                         standardized_category = NORMALIZED_CATEGORIES.get(normalized_key, category)
                         
                         if name in processed_ingredients:
@@ -86,7 +86,7 @@ class CalculateService:
         
         return processed_ingredients
 
-    def generate_ngrams_from_text(self, text, n=3):
+    def generate_ngrams_from_text(self, text, n=2):
         """Generate n-grams from text for comparison"""
         if not text:
             return set()
@@ -105,6 +105,7 @@ class CalculateService:
                 ngrams.add(word)
         
         return ngrams
+    
 
     def calculate_fuzzy_match_score(self, ingredient_name, product_name, product_token_ngrams=None):
         """Enhanced fuzzy matching using token_ngrams for better accuracy"""
@@ -197,7 +198,6 @@ class CalculateService:
             # Process each ingredient with its pre-computed info
             for ingredient_name, ingredient_info in processed_ingredients.items():
                 ingredient_category = ingredient_info.get('category', '')
-                # normalized_category = ingredient_category.lower().replace(' ', '_')
                 collection_name = CATEGORY_TO_COLLECTION.get(ingredient_category)
                 category_products = []
                 for store_id_format in [store_id, str(store_id), int(store_id)]:
