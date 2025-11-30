@@ -1,8 +1,132 @@
+from services.embedding_service import EmbeddingService
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import topsispy as tp
+import re
+from difflib import SequenceMatcher
 
 class CalculateService:
+    def __init__(self):
+        # Initialize embedding service
+        self.embedding_service = EmbeddingService(
+            model_name='keepitreal/vietnamese-sbert',
+            index_dir='scripts/faiss_indexes'
+        )
+
+        # Load all indexes on startup
+        self._load_all_indexes()
+
+        # MongoDB database reference (will be set when needed)
+        self.metadata_db = None
+    
+    def _load_all_indexes(self):
+        """Load all FAISS indexes on service initialization"""
+        collections = [
+            'alcoholic_beverages', 'beverages', 'cakes', 'candies',
+            'cereals_&_grains', 'cold_cuts:_sausages_&_ham', 'dried_fruits',
+            'fresh_fruits', 'fresh_meat', 'fruit_jam', 'grains_&_staples',
+            'ice_cream_&_cheese', 'instant_foods', 'milk', 'seafood_&_fish_balls',
+            'seasonings', 'snacks', 'vegetables', 'yogurt'
+        ]
+
+        self.embedding_service.load_all_indexes(collections)
+
+    def _calculate_string_similarity(self, str1, str2):
+        """Calculate similarity ratio between two strings using SequenceMatcher"""
+        return SequenceMatcher(None, str1.lower(), str2.lower()).ratio()
+   
+
+    def _fuzzy_search_products(self, collection_name, query, store_id, top_k=6, min_similarity=0.3):
+        """
+        Fallback fuzzy search using MongoDB regex and string similarity
+
+        Args:
+            collection_name: MongoDB collection name
+            query: Search query string
+            store_id: Store ID to filter products
+            top_k: Number of top results to return
+            min_similarity: Minimum similarity threshold (0-1)
+
+        Returns:
+            List of matched products with similarity scores
+        """
+        if self.metadata_db is None:
+            return []
+
+        try:
+            collection = self.metadata_db[collection_name]
+
+            # Prepare store IDs in different formats
+            store_ids = [store_id, str(store_id)]
+            try:
+                store_ids.append(int(store_id))
+            except (ValueError, TypeError):
+                pass
+
+            # First, try regex search for broader matches
+            search_regex = {'$regex': re.escape(query), '$options': 'i'}
+            regex_query = {
+                'store_id': {'$in': store_ids},
+                '$or': [
+                    {'name': search_regex},
+                    {'name_en': search_regex},
+                    {'description': search_regex}
+                ]
+            }
+
+            # Get products from regex search
+            products = list(collection.find(regex_query).limit(50))
+
+            # If regex doesn't find enough results, get more products for fuzzy matching
+            if len(products) < top_k:
+                additional_products = list(collection.find(
+                    {'store_id': {'$in': store_ids}}
+                ).limit(100))
+
+                # Merge and deduplicate
+                seen_ids = {str(p.get('_id')) for p in products}
+                for p in additional_products:
+                    if str(p.get('_id')) not in seen_ids:
+                        products.append(p)
+
+            # Calculate similarity scores for all products
+            results = []
+            for product in products:
+                product_name = product.get('name', '')
+                product_name_en = product.get('name_en', '')
+
+                name_similarity = self._calculate_string_similarity(query, product_name)
+                name_en_similarity = self._calculate_string_similarity(query, product_name_en) if product_name_en else 0
+
+                similarity_score = max(name_similarity, name_en_similarity)
+
+                # Only include if above minimum threshold
+                if similarity_score >= min_similarity:
+                    results.append({
+                        'name': product_name,
+                        'name_en': product_name_en,
+                        'image': product.get('image', ''),
+                        'sku': product.get('sku', ''),
+                        'category': product.get('category', ''),
+                        'unit': product.get('unit', ''),
+                        'net_unit_value': product.get('net_unit_value', 1),
+                        'price': product.get('price', 0),
+                        'sys_price': product.get('sys_price', product.get('price', 0)),
+                        'discountPercent': product.get('discountPercent', 0),
+                        'url': product.get('url', ''),
+                        'promotion': product.get('promotion', ''),
+                        'similarity_score': similarity_score,
+                        'search_method': 'fuzzy'
+                    })
+
+            # Sort by similarity score and price
+            results.sort(key=lambda x: (-x['similarity_score'], x.get('price', float('inf'))))
+
+            # Return top K results
+            return results[:top_k]
+
+        except Exception as e:
+            print(f"⚠️  Fuzzy search error in {collection_name}: {str(e)}")
+            return []
     
     def process_all_ingredients(self, basket_ingredients, basket_dishes):
         processed_ingredients = {}   
@@ -85,84 +209,17 @@ class CalculateService:
                             }
         
         return processed_ingredients
-
-    def generate_ngrams_from_text(self, text, n=2):
-        """Generate n-grams from text for comparison"""
-        if not text:
-            return set()
-        
-        text = text.lower().strip()
-        ngrams = set()
-        
-        # Character n-grams
-        for i in range(len(text) - n + 1):
-            ngrams.add(text[i:i+n])
-        
-        # Word tokens
-        words = text.split()
-        for word in words:
-            if len(word) >= 2:
-                ngrams.add(word)
-        
-        return ngrams
     
-
-    def calculate_fuzzy_match_score(self, ingredient_name, product_name, product_token_ngrams=None):
-        """Enhanced fuzzy matching using token_ngrams for better accuracy"""
-        if not ingredient_name or not product_name:
-            return 0.0
-        
-        ingredient_name = ingredient_name.lower().strip()
-        product_name = product_name.lower().strip()
-        
-        if ingredient_name == product_name:
-            return 1.0
-        
-        if ingredient_name in product_name or product_name in ingredient_name:
-            return 0.9
-        
-        if product_token_ngrams and isinstance(product_token_ngrams, list):
-            # Generate ngrams for ingredient
-            ingredient_ngrams = self.generate_ngrams_from_text(ingredient_name)
-            product_ngrams = set(product_token_ngrams)
-            
-            if ingredient_ngrams and product_ngrams:
-                # Calculate Jaccard similarity using ngrams
-                intersection = len(ingredient_ngrams.intersection(product_ngrams))
-                union = len(ingredient_ngrams.union(product_ngrams))
-                ngram_similarity = intersection / union if union > 0 else 0.0
-                
-                # Boost score for good ngram matches
-                if ngram_similarity >= 0.3:
-                    return min(ngram_similarity + 0.2, 1.0)
-                elif ngram_similarity >= 0.1:
-                    return min(ngram_similarity + 0.1, 1.0)
-        
-        ingredient_words = set(ingredient_name.split())
-        product_words = set(product_name.split())
-        
-        if ingredient_words and product_words:
-            overlap = len(ingredient_words.intersection(product_words))
-            total = len(ingredient_words.union(product_words))
-            jaccard = overlap / total if total > 0 else 0.0
-            
-            if overlap > 0:
-                return min(jaccard + 0.1, 1.0)
-            return jaccard
-        
-        return 0.0
-
-
     def find_matched_products(self, metadata_db, candidate_stores, processed_ingredients):
-        
-        # Category to collection mapping
+        self.metadata_db = metadata_db
+        # Category to collection name mapping
         CATEGORY_TO_COLLECTION = {
             'Alcoholic Beverages': 'alcoholic_beverages',
             'Beverages': 'beverages',
             'Cakes': 'cakes',
             'Candies': 'candies',
             'Cereals & Grains': 'cereals_&_grains',
-            'Cold Cuts: Sausages & Ham': 'cold_cuts_sausages_&_ham',
+            'Cold Cuts: Sausages & Ham': 'cold_cuts:_sausages_&_ham',
             'Dried Fruits': 'dried_fruits',
             'Fresh Fruits': 'fresh_fruits',
             'Fresh Meat': 'fresh_meat',
@@ -170,199 +227,215 @@ class CalculateService:
             'Grains & Staples': 'grains_&_staples',
             'Ice Cream & Cheese': 'ice_cream_&_cheese',
             'Instant Foods': 'instant_foods',
-            'Milk' : 'milk',
+            'Milk': 'milk',
             'Seafood & Fish Balls': 'seafood_&_fish_balls',
             'Seasonings': 'seasonings',
             'Snacks': 'snacks',
             'Vegetables': 'vegetables',
             'Yogurt': 'yogurt'
         }
-        
-        def process_store(store):
-            # """Process single store with optimized ingredient lookup and net_unit_value calculation"""
+
+        store_calculations = []
+
+        for store in candidate_stores:
             store_id = store.get('store_id')
-            store_name = store.get('store_name')
+            store_name = store.get('store_name', store.get('name', 'Unknown'))
             store_distance = store.get('distance_km', 0)
-            store_chain = store.get('chain')
-            store_address = store.get('store_location')
+            store_chain = store.get('chain', '')
+            store_address = store.get('store_location', store.get('address', ''))
             store_phone = store.get('phone', '')
             store_rating = store.get('totalScore', 0)
             store_reviews = store.get('reviewsCount', 0)
-            
+
             if not store_id:
-                return None
-            
-            ingredient_products = {}
-            total_products_found = 0
-            
-            # Process each ingredient with its pre-computed info
-            for ingredient_name, ingredient_info in processed_ingredients.items():
-                ingredient_category = ingredient_info.get('category', '')
-                collection_name = CATEGORY_TO_COLLECTION.get(ingredient_category)
-                category_products = []
-                for store_id_format in [store_id, str(store_id), int(store_id)]:
-                    try:
-                        category_products = list(metadata_db[collection_name].find({'store_id': store_id_format}))
-                        if category_products:
-                            break
-                    except:
-                        continue
-                
-                total_products_found += len(category_products)
-                
-                # Find best matches with enhanced scoring using token_ngrams
-                ingredient_matches = []
-                for product in category_products:                
-                    # Check product names for matches
-                    product_names = [product.get(field, '') for field in ['name_en'] if product.get(field)]
-                    
-                    best_score = 0.0
-                    best_field = None
-                    
-                    for product_name in product_names:
-                        product_ngrams = product.get('token_ngrams', [])
-                        score = self.calculate_fuzzy_match_score(ingredient_name, product_name, product_ngrams)
-                        if score > best_score:
-                            best_score = score
-                            best_field = product_name
-                    
-                    if best_score >= 0.4:  # Threshold
-                        ingredient_matches.append({
-                            'product': product,
-                            'score': best_score,
-                            'matched_field': best_field,
-                            'ingredient_info': ingredient_info
-                        })
-                
-                # Sort by score then price
-                if ingredient_matches:
-                    ingredient_matches.sort(key=lambda x: (-x['score'], x['product'].get('price', x['product'].get('price_per_unit', float('inf')))))
-                    ingredient_products[ingredient_name] = ingredient_matches
-                else:
-                    ingredient_products[ingredient_name] = []
-            
-            if total_products_found == 0:
-                return None
-            
+                continue
+
             total_cost = 0
             found_ingredients = 0
             missing_ingredients = []
             store_items = []
-            
+
             for ingredient_name, ingredient_info in processed_ingredients.items():
-                matches = ingredient_products.get(ingredient_name, [])
-                
-                ingredient_quantity_needed = ingredient_info['total_quantity']
-                ingredient_unit = ingredient_info.get('unit', '')
-                
-                if matches:
-                    best_match = matches[0]
-                    best_product = best_match['product']
-                    
-                    # Get price and net_unit_value
-                    price_per_unit = best_product.get('price')
-                    
-                    net_unit_value = best_product.get('net_unit_value', 1)
-                    product_unit = best_product.get('unit', '')
-                    actual_quantity_needed = ingredient_quantity_needed / net_unit_value
-                    
-                    units_to_buy = max(1, round(actual_quantity_needed, 3))
-                    
-                    # Calculate total cost
-                    item_cost = price_per_unit * units_to_buy
-                    total_cost += item_cost
-                    found_ingredients += 1
-                    
-                    # Get top 5 alternative products with net_unit_value calculation
-                    alternatives = []
-                    for i, match in enumerate(matches[1:6]):  
-                        alt_product = match['product']
-                        alt_price = alt_product.get('price')
-                        
-                        alt_net_unit_value = alt_product.get('net_unit_value', 1)
-                        alt_product_unit = alt_product.get('unit', '')
-                        alt_units_to_buy = max(1, round(ingredient_quantity_needed / alt_net_unit_value if alt_net_unit_value > 0 else 1, 3))
-                        
-                        alternatives.append({
-                            'product_name': alt_product.get('name', ''),
-                            'product_name_en': alt_product.get('name_en', ''),
-                            'product_image': alt_product.get('image', ''),
-                            'product_sku': alt_product.get('sku', ''),
-                            'product_category': alt_product.get('category', ''),
-                            'product_unit': alt_product_unit,
-                            'product_net_unit_value': alt_net_unit_value,
-                            'price_per_unit': alt_price,
-                            'original_price': alt_product.get('sys_price', alt_price),
-                            'discount_percent': alt_product.get('discountPercent', 0),
-                            'quantity_needed': round(alt_units_to_buy, 3),
-                            'total_price': round(alt_price * alt_units_to_buy, 2),
-                            'match_score': match['score'],
-                            'matched_field': match['matched_field'],
-                            'product_url': alt_product.get('url', ''),
-                            'promotion': alt_product.get('promotion', ''),
-                            'rank': i + 2  # Rank starting from 2 (since best is rank 1)
+                try:
+                    category_display = ingredient_info.get('category', 'Vegetables')
+                    collection_name = CATEGORY_TO_COLLECTION.get(category_display, 'vegetables')
+
+                    ingredient_quantity_needed = ingredient_info.get('total_quantity', 1)
+                    ingredient_unit = ingredient_info.get('unit', '')
+                    vietnamese_name = ingredient_info.get('vietnamese_name', '')
+
+                    search_query = vietnamese_name if vietnamese_name else ingredient_name
+
+                    # Try FAISS search first
+                    results = self.embedding_service.search(
+                        collection_name=collection_name,
+                        query=search_query,
+                        store_id=store_id,
+                        top_k=6, 
+                        threshold=0.35, 
+                        category=category_display 
+                    )
+
+                    # If FAISS returns no results or low-quality results, use fuzzy search as fallback
+                    faiss_score = results[0].get('similarity_score', 0) if results else 0
+                    if not results or faiss_score < 0.5:
+                        print(f"🔍 Using fuzzy search fallback for '{ingredient_name}' (FAISS score: {faiss_score:.2f})")
+                        fuzzy_results = self._fuzzy_search_products(
+                            collection_name=collection_name,
+                            query=search_query,
+                            store_id=store_id,
+                            top_k=6,
+                            min_similarity=0.3
+                        )
+
+                        # Use fuzzy results if they're better or FAISS had no results
+                        if fuzzy_results:
+                            fuzzy_score = fuzzy_results[0].get('similarity_score', 0)
+                            if not results:
+                                print(f"   ✓ Fuzzy search found {len(fuzzy_results)} results (best: {fuzzy_score:.2f})")
+                                results = fuzzy_results
+                            elif fuzzy_score > faiss_score:
+                                print(f"   ✓ Merging FAISS and fuzzy results (fuzzy better: {fuzzy_score:.2f} > {faiss_score:.2f})")
+                                # Merge results, prioritizing better scores
+                                combined = results + fuzzy_results
+                                # Remove duplicates by SKU
+                                seen_skus = set()
+                                unique_results = []
+                                for r in combined:
+                                    sku = r.get('sku', '')
+                                    if sku and sku not in seen_skus:
+                                        seen_skus.add(sku)
+                                        unique_results.append(r)
+                                    elif not sku:
+                                        unique_results.append(r)
+                                results = sorted(unique_results, key=lambda x: (-x['similarity_score'], x.get('price', float('inf'))))[:6]
+                            else:
+                                print(f"   ⓘ Keeping FAISS results (FAISS: {faiss_score:.2f} >= fuzzy: {fuzzy_score:.2f})")
+                        else:
+                            print(f"   ✗ Fuzzy search found no results")
+
+                    if results:
+                        # Sort by similarity score and price
+                        results.sort(key=lambda x: (-x['similarity_score'], x.get('price', float('inf'))))
+
+                        best_product = results[0]
+
+                        # Calculate quantity and cost (matching fuzzy search logic)
+                        price_per_unit = best_product.get('price', 0)
+                        net_unit_value = best_product.get('net_unit_value', 1)
+                        product_unit = best_product.get('unit', '')
+
+                        actual_quantity_needed = ingredient_quantity_needed / net_unit_value if net_unit_value > 0 else ingredient_quantity_needed
+                        units_to_buy = max(1, round(actual_quantity_needed, 3))
+                        item_cost = price_per_unit * units_to_buy
+
+                        total_cost += item_cost
+                        found_ingredients += 1
+
+                        # Build alternatives list (top 5 after best match)
+                        alternatives = []
+                        for i, alt_product in enumerate(results[1:6]):
+                            alt_price = alt_product.get('price', 0)
+                            alt_net_unit_value = alt_product.get('net_unit_value', 1)
+                            alt_product_unit = alt_product.get('unit', '')
+                            alt_units_to_buy = max(1, round(ingredient_quantity_needed / alt_net_unit_value if alt_net_unit_value > 0 else 1, 3))
+
+                            alternatives.append({
+                                'product_name': alt_product.get('name', ''),
+                                'product_name_en': alt_product.get('name_en', ''),
+                                'product_image': alt_product.get('image', ''),
+                                'product_sku': alt_product.get('sku', ''),
+                                'product_category': alt_product.get('category', ''),
+                                'product_unit': alt_product_unit,
+                                'product_net_unit_value': alt_net_unit_value,
+                                'price_per_unit': alt_price,
+                                'original_price': alt_product.get('sys_price', alt_price),
+                                'discount_percent': alt_product.get('discountPercent', 0),
+                                'quantity_needed': round(alt_units_to_buy, 3),
+                                'total_price': round(alt_price * alt_units_to_buy, 2),
+                                'match_score': alt_product.get('similarity_score', 0),
+                                'matched_field': alt_product.get('name', ''),
+                                'product_url': alt_product.get('url', ''),
+                                'promotion': alt_product.get('promotion', ''),
+                                'rank': i + 2
+                            })
+
+                        # Add matched product to store items
+                        store_items.append({
+                            'ingredient_name': ingredient_name,
+                            'ingredient_vietnamese_name': ingredient_info.get('vietnamese_name', ''),
+                            'ingredient_category': ingredient_info.get('category', ''),
+                            'ingredient_unit': ingredient_unit,
+                            'product_name': best_product.get('name', ''),
+                            'product_name_en': best_product.get('name_en', ''),
+                            'product_image': best_product.get('image', ''),
+                            'product_sku': best_product.get('sku', ''),
+                            'product_category': best_product.get('category', ''),
+                            'product_unit': product_unit,
+                            'product_net_unit_value': net_unit_value,
+                            'price_per_unit': price_per_unit,
+                            'original_price': best_product.get('sys_price', price_per_unit),
+                            'discount_percent': best_product.get('discountPercent', 0),
+                            'quantity_needed': round(units_to_buy, 3),
+                            'total_price': round(item_cost, 2),
+                            'available': True,
+                            'match_score': best_product.get('similarity_score', 0),
+                            'matched_field': best_product.get('name', ''),
+                            'product_url': best_product.get('url', ''),
+                            'promotion': best_product.get('promotion', ''),
+                            'alternatives_count': len(alternatives),
+                            'alternatives': alternatives,
+                            'rank': 1
                         })
-                    
-                    # Enhanced product information with net_unit_value
-                    store_items.append({
-                        'ingredient_name': ingredient_name,
-                        'ingredient_vietnamese_name': ingredient_info.get('vietnamese_name', ''),
-                        'ingredient_category': ingredient_info.get('category', ''),
-                        'ingredient_unit': ingredient_unit,
-                        'product_name': best_product.get('name', ''),
-                        'product_name_en': best_product.get('name_en', ''),
-                        'product_image': best_product.get('image', ''),
-                        'product_sku': best_product.get('sku', ''),
-                        'product_category': best_product.get('category', ''),
-                        'product_unit': product_unit,
-                        'product_net_unit_value': net_unit_value,
-                        'price_per_unit': price_per_unit,
-                        'original_price': best_product.get('sys_price', price_per_unit),
-                        'discount_percent': best_product.get('discountPercent', 0),
-                        'quantity_needed': round(units_to_buy, 3),
-                        'total_price': round(item_cost, 2),
-                        'available': True,
-                        'match_score': best_match['score'],
-                        'matched_field': best_match['matched_field'],
-                        'product_url': best_product.get('url', ''),
-                        'promotion': best_product.get('promotion', ''),
-                        'alternatives_count': len(matches) - 1,
-                        'alternatives': alternatives,  # Top 5 alternative products
-                        'rank': 1  # Best match rank
-                    })
-                else:
+                    else:
+                        # No match found
+                        missing_ingredients.append(ingredient_name)
+
+                        store_items.append({
+                            'ingredient_name': ingredient_name,
+                            'ingredient_vietnamese_name': ingredient_info.get('vietnamese_name', ''),
+                            'ingredient_category': ingredient_info.get('category', ''),
+                            'ingredient_unit': ingredient_unit,
+                            'product_id': None,
+                            'product_name': None,
+                            'product_name_en': None,
+                            'product_image': None,
+                            'product_sku': None,
+                            'product_category': None,
+                            'product_unit': None,
+                            'product_net_unit_value': None,
+                            'price_per_unit': 0,
+                            'original_price': 0,
+                            'discount_percent': 0,
+                            'quantity_needed': ingredient_quantity_needed,
+                            'total_price': 0,
+                            'available': False,
+                            'match_score': 0.0,
+                            'matched_field': None,
+                            'product_url': None,
+                            'promotion': None,
+                            'alternatives_count': 0
+                        })
+
+                except Exception as e:
+                    print(f"⚠️  Error processing {ingredient_name}: {str(e)}")
                     missing_ingredients.append(ingredient_name)
-                    
+
                     store_items.append({
                         'ingredient_name': ingredient_name,
                         'ingredient_vietnamese_name': ingredient_info.get('vietnamese_name', ''),
                         'ingredient_category': ingredient_info.get('category', ''),
-                        'ingredient_unit': ingredient_unit,
-                        'product_id': None,
-                        'product_name': None,
-                        'product_name_en': None,
-                        'product_vietnamese_name': None,
-                        'product_image': None,
-                        'product_sku': None,
-                        'product_category': None,
-                        'product_unit': None,
-                        'product_net_unit_value': None,
-                        'price_per_unit': 0,
-                        'original_price': 0,
-                        'discount_percent': 0,
-                        'quantity_needed': ingredient_quantity_needed,
-                        'total_price': 0,
+                        'ingredient_unit': ingredient_info.get('unit', ''),
                         'available': False,
                         'match_score': 0.0,
-                        'matched_field': None,
-                        'product_url': None,
-                        'promotion': None,
-                        'alternatives_count': 0
+                        'total_price': 0
                     })
-            
+
+            # Calculate availability percentage
             availability_percentage = (found_ingredients / len(processed_ingredients) * 100) if processed_ingredients else 0
-            
-            return {
+
+            # Build store calculation result (matching fuzzy search format)
+            store_calculations.append({
                 'store_id': str(store_id),
                 'store_name': store_name,
                 'store_chain': store_chain,
@@ -378,23 +451,9 @@ class CalculateService:
                 'missing_ingredients': missing_ingredients,
                 'items': store_items,
                 'overall_score': 0,
-                'products_analyzed': total_products_found,
-                'average_match_score': round(sum(item['match_score'] for item in store_items if item['available']) / max(found_ingredients, 1), 2)
-            }
-        
-        # Process stores in parallel
-        store_calculations = []
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            future_to_store = {executor.submit(process_store, store): store for store in candidate_stores}
-            
-            for future in as_completed(future_to_store):
-                try:
-                    result = future.result()
-                    if result:
-                        store_calculations.append(result)
-                except Exception:
-                    continue  
-        
+                'average_match_score': round(sum(item['match_score'] for item in store_items if item.get('available', False)) / max(found_ingredients, 1), 2)
+            })
+
         return store_calculations
 
 

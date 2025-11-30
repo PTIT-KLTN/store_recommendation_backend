@@ -67,3 +67,5 @@ coverage.xml
 # Migrations
 migrations/
 */migrations/
+
+scripts/faiss_indexes
