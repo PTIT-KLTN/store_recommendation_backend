@@ -266,20 +266,16 @@ class CalculateService:
 
                     search_query = vietnamese_name if vietnamese_name else ingredient_name
 
-                    # Try FAISS search first
-                    results = self.embedding_service.search(
-                        collection_name=collection_name,
-                        query=search_query,
-                        store_id=store_id,
-                        top_k=6, 
-                        threshold=0.35, 
-                        category=category_display 
-                    )
+                    # Determine query length for search strategy
+                    query_length = len(search_query.strip())
+                    is_short_query = query_length <= 6
 
-                    # If FAISS returns no results or low-quality results, use fuzzy search as fallback
-                    faiss_score = results[0].get('similarity_score', 0) if results else 0
-                    if not results or faiss_score < 0.5:
-                        print(f"🔍 Using fuzzy search fallback for '{ingredient_name}' (FAISS score: {faiss_score:.2f})")
+                    # Strategy: For short queries, prioritize fuzzy search (exact/partial matching works better)
+                    # For long queries, use FAISS semantic search first
+
+                    if is_short_query:
+                        # SHORT QUERY: Try fuzzy search FIRST
+                        print(f"🔤 Short query '{search_query}' - prioritizing fuzzy search")
                         fuzzy_results = self._fuzzy_search_products(
                             collection_name=collection_name,
                             query=search_query,
@@ -288,31 +284,75 @@ class CalculateService:
                             min_similarity=0.3
                         )
 
-                        # Use fuzzy results if they're better or FAISS had no results
                         if fuzzy_results:
                             fuzzy_score = fuzzy_results[0].get('similarity_score', 0)
-                            if not results:
-                                print(f"   ✓ Fuzzy search found {len(fuzzy_results)} results (best: {fuzzy_score:.2f})")
-                                results = fuzzy_results
-                            elif fuzzy_score > faiss_score:
-                                print(f"   ✓ Merging FAISS and fuzzy results (fuzzy better: {fuzzy_score:.2f} > {faiss_score:.2f})")
-                                # Merge results, prioritizing better scores
-                                combined = results + fuzzy_results
-                                # Remove duplicates by SKU
-                                seen_skus = set()
-                                unique_results = []
-                                for r in combined:
-                                    sku = r.get('sku', '')
-                                    if sku and sku not in seen_skus:
-                                        seen_skus.add(sku)
-                                        unique_results.append(r)
-                                    elif not sku:
-                                        unique_results.append(r)
-                                results = sorted(unique_results, key=lambda x: (-x['similarity_score'], x.get('price', float('inf'))))[:6]
-                            else:
-                                print(f"   ⓘ Keeping FAISS results (FAISS: {faiss_score:.2f} >= fuzzy: {fuzzy_score:.2f})")
+                            print(f"   ✓ Fuzzy found {len(fuzzy_results)} results (best: {fuzzy_score:.2f})")
+                            results = fuzzy_results
                         else:
-                            print(f"   ✗ Fuzzy search found no results")
+                            # Fallback to FAISS with lower threshold for short queries
+                            print(f"   ⚠️  Fuzzy found nothing, trying FAISS with lower threshold")
+                            results = self.embedding_service.search(
+                                collection_name=collection_name,
+                                query=search_query,
+                                store_id=store_id,
+                                top_k=6,
+                                threshold=0.25,  # Lower threshold for short queries
+                                category=category_display
+                            )
+                            faiss_score = results[0].get('similarity_score', 0) if results else 0
+                            if results:
+                                print(f"   ✓ FAISS found {len(results)} results (best: {faiss_score:.2f})")
+                            else:
+                                print(f"   ✗ No results from both fuzzy and FAISS")
+
+                    else:
+                        # LONG QUERY: Try FAISS search first (semantic matching works better)
+                        results = self.embedding_service.search(
+                            collection_name=collection_name,
+                            query=search_query,
+                            store_id=store_id,
+                            top_k=6,
+                            threshold=0.35,
+                            category=category_display
+                        )
+
+                        # If FAISS returns no results or low-quality results, use fuzzy search as fallback
+                        faiss_score = results[0].get('similarity_score', 0) if results else 0
+                        if not results or faiss_score < 0.5:
+                            print(f"🔍 Using fuzzy search fallback for '{ingredient_name}' (FAISS score: {faiss_score:.2f})")
+                            fuzzy_results = self._fuzzy_search_products(
+                                collection_name=collection_name,
+                                query=search_query,
+                                store_id=store_id,
+                                top_k=6,
+                                min_similarity=0.3
+                            )
+
+                            # Use fuzzy results if they're better or FAISS had no results
+                            if fuzzy_results:
+                                fuzzy_score = fuzzy_results[0].get('similarity_score', 0)
+                                if not results:
+                                    print(f"   ✓ Fuzzy search found {len(fuzzy_results)} results (best: {fuzzy_score:.2f})")
+                                    results = fuzzy_results
+                                elif fuzzy_score > faiss_score:
+                                    print(f"   ✓ Merging FAISS and fuzzy results (fuzzy better: {fuzzy_score:.2f} > {faiss_score:.2f})")
+                                    # Merge results, prioritizing better scores
+                                    combined = results + fuzzy_results
+                                    # Remove duplicates by SKU
+                                    seen_skus = set()
+                                    unique_results = []
+                                    for r in combined:
+                                        sku = r.get('sku', '')
+                                        if sku and sku not in seen_skus:
+                                            seen_skus.add(sku)
+                                            unique_results.append(r)
+                                        elif not sku:
+                                            unique_results.append(r)
+                                    results = sorted(unique_results, key=lambda x: (-x['similarity_score'], x.get('price', float('inf'))))[:6]
+                                else:
+                                    print(f"   ⓘ Keeping FAISS results (FAISS: {faiss_score:.2f} >= fuzzy: {fuzzy_score:.2f})")
+                            else:
+                                print(f"   ✗ Fuzzy search found no results")
 
                     if results:
                         # Sort by similarity score and price
@@ -504,7 +544,7 @@ class CalculateService:
         topsis_result = tp.topsis(matrix.tolist(), weights, signs)
         
         if isinstance(topsis_result, tuple) and len(topsis_result) == 2:
-            best_index, scores = topsis_result
+            _, scores = topsis_result  # best_index not used
             if hasattr(scores, 'tolist'):
                 scores_list = scores.tolist()
             elif isinstance(scores, (list, tuple)):

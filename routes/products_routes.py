@@ -25,7 +25,7 @@ def get_store_products(store_id):
         max_price = request.args.get('max_price', type=float)
         
         # Validation
-        if page < 0 or size <= 0 or size > 200:
+        if page < 0 or size <= 0 or size > 10000:
             return jsonify({'message': 'Invalid pagination parameters'}), 400
             
         result, error = get_store_products_data(

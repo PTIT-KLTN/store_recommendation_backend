@@ -200,7 +200,6 @@ def get_store_stats_data(store_id):
                     
         # Get store info
         store_info = metadata_db.stores.find_one({'store_id': {'$in': store_ids}})
-        print(store_info)
         if not store_info:
             return None, "Không tìm thấy cửa hàng"
         
@@ -222,7 +221,6 @@ def get_store_stats_data(store_id):
             try:
                 collection = metadata_db[collection_name]
                 products = list(collection.find({'store_id': {'$in': store_ids}}))
-                print("products",products)
                 if products:
                     # Extract prices for this category
                     category_prices = []
@@ -234,7 +232,6 @@ def get_store_stats_data(store_id):
                                 all_prices.append(price)
                         except (ValueError, TypeError):
                             continue
-                    print(category_name, len(products))
                     stats['categories'].append({
                         'category': category_name,
                         'product_count': len(products),     

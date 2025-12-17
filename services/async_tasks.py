@@ -9,7 +9,6 @@ import os
 # celery -A services.async_tasks beat --loglevel=info
 
 celery_app = Celery('markendation_tasks', broker=os.getenv('REDIS_URL'), backend=os.getenv('REDIS_URL'))
-
 # Celery configuration
 celery_app.conf.update(
     task_serializer='json',
