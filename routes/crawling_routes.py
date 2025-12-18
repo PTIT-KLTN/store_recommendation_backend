@@ -153,9 +153,23 @@ def get_user_tasks():
             .limit(limit)
         )
         
+        # Get metadata_db to fetch store names
+        metadata_db = MongoDBConnection.get_metadata_db()
+        
         for task in tasks:
             if '_id' in task:
                 task['_id'] = str(task['_id'])
+            
+            # Fetch store_name from stores collection
+            store_id = task.get('store_id')
+            store = None
+            
+            if store_id:
+                store = metadata_db.stores.find_one({'store_id': store_id})
+                if not store and isinstance(store_id, str) and store_id.isdigit():
+                    store = metadata_db.stores.find_one({'store_id': int(store_id)})
+            
+            task['store_name'] = store.get('store_name', 'Unknown') if store else 'Unknown'
         
         total = db.crawling_tasks.count_documents(query)
         

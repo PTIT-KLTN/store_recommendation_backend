@@ -101,14 +101,16 @@ def get_store_products_data(store_id, page=0, size=50, category=None, search=Non
         total = len(all_products)
         paginated_products = all_products[skip:skip + size]
         
-        # Check if store exists
-        if total == 0:
-            store_exists = metadata_db.stores.find_one({'store_id': {'$in': store_ids}})
-            if not store_exists:
-                return None, "Store not found"
+        # Get store info
+        store_info = metadata_db.stores.find_one({'store_id': {'$in': store_ids}})
+        if not store_info:
+            return None, "Store not found"
+        
+        store_name = store_info.get('store_name', '')
         
         return {
             'products': paginated_products,
+            'store_name': store_name,
             'pagination': {
                 'current_page': page,
                 'page_size': size,
