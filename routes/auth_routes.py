@@ -163,6 +163,9 @@ def change_password():
         current_user_email = get_jwt_identity()
         data = request.get_json()
         
+        if data.get('current_password') == data.get('new_password'):
+            return jsonify({'message': 'Mật khẩu mới không được trùng với mật khẩu hiện tại'}), 400
+
         if not data or not all(k in data for k in ('current_password', 'new_password')):
             return jsonify({'message': 'Mật khẩu hiện tại và mật khẩu mới là bắt buộc'}), 400
         
@@ -226,13 +229,12 @@ def reset_password():
     """Reset password using token"""
     try:
         data = request.get_json()
-        
         if not data or not all(k in data for k in ('token', 'new_password')):
             return jsonify({'message': 'Token và mật khẩu mới là bắt buộc'}), 400
         
         token = data['token']
         new_password = data['new_password']
-        
+
         # Gọi service xử lý
         success, message, error_code = reset_password_service(token, new_password)
         

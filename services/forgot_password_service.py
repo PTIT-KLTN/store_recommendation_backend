@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 import os
 from database.mongodb import MongoDBConnection
 from validators.auth_validators import validate_email, validate_password
-from flask_bcrypt import generate_password_hash
+from flask_bcrypt import generate_password_hash, check_password_hash
 
 _db = MongoDBConnection.get_primary_db()
 
@@ -19,7 +19,7 @@ def request_password_reset_service(email: str):
     try:
         # 1. Validate email format
         if not validate_email(email):
-            return False, "Invalid email format", "INVALID_EMAIL"
+            return False, "Định dạng email không hợp lệ", "INVALID_EMAIL"
         
         email = email.strip().lower()
         
@@ -27,15 +27,15 @@ def request_password_reset_service(email: str):
         user = _db.users.find_one({'email': email})
         if not user:
             # Vẫn trả về success để tránh email enumeration attack
-            return True, "If the email exists, a password reset link has been sent", None
+            return True, "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi", None
         
         # 3. Kiểm tra nếu là Google account
         if not user.get('password'):
-            return False, "Cannot reset password for Google account. Please login with Google.", "GOOGLE_ACCOUNT"
-        
+            return False, "Không thể đặt lại mật khẩu cho tài khoản Google. Vui lòng đăng nhập bằng Google.", "GOOGLE_ACCOUNT"
+
         # 4. Kiểm tra user có bị disable không
         if not user.get('is_enabled', True):
-            return False, "Account is disabled. Please contact support.", "ACCOUNT_DISABLED"
+            return False, "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ hỗ trợ.", "ACCOUNT_DISABLED"
         
         # 5. Tạo reset token
         reset_token = secrets.token_urlsafe(32)
@@ -56,12 +56,12 @@ def request_password_reset_service(email: str):
         email_sent = send_reset_password_email(email, user.get('fullname', ''), reset_link)
         
         if not email_sent:
-            return False, "Failed to send reset password email. Please try again later.", "EMAIL_SEND_FAILED"
+            return False, "Gửi email đặt lại mật khẩu thất bại. Vui lòng thử lại sau.", "EMAIL_SEND_FAILED"
         
-        return True, "If the email exists, a password reset link has been sent", None
+        return True, "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi", None
         
     except Exception as e:
-        return False, f"Failed to process forgot password request: {str(e)}", "INTERNAL_ERROR"
+        return False, f"Xử lý yêu cầu quên mật khẩu thất bại: {str(e)}", "INTERNAL_ERROR"
 
 def reset_password_service(token: str, new_password: str):
     """
@@ -81,28 +81,32 @@ def reset_password_service(token: str, new_password: str):
         })
         
         if not token_doc:
-            return False, "Invalid or expired reset token", "INVALID_TOKEN"
+            return False, "Token đặt lại mật khẩu không hợp lệ hoặc đã hết hạn", "INVALID_TOKEN"
         
         # 3. Kiểm tra token hết hạn chưa
         if token_doc['expiry'] < datetime.utcnow():
             _db.password_reset_tokens.delete_one({'_id': token_doc['_id']})
-            return False, "Reset token has expired. Please request a new one.", "TOKEN_EXPIRED"
+            return False, "Token đặt lại mật khẩu đã hết hạn. Vui lòng yêu cầu token mới.", "TOKEN_EXPIRED"
         
         email = token_doc['email']
         
         # 4. Kiểm tra user còn tồn tại không
         user = _db.users.find_one({'email': email})
         if not user:
-            return False, "User not found", "USER_NOT_FOUND"
+            return False, "Không tìm thấy người dùng", "USER_NOT_FOUND"
         
         # 5. Kiểm tra user có bị disable không
         if not user.get('is_enabled', True):
-            return False, "Account is disabled. Please contact support.", "ACCOUNT_DISABLED"
+            return False, "Tài khoản đã bị vô hiệu hóa. Vui lòng liên hệ hỗ trợ.", "ACCOUNT_DISABLED"
         
-        # 6. Hash password mới
+        # 6. Kiểm tra mật khẩu mới không trùng với mật khẩu hiện tại
+        if user.get('password') and check_password_hash(user['password'], new_password):
+            return False, "Mật khẩu mới không thể trùng với mật khẩu hiện tại", "PASSWORD_SAME_AS_OLD"
+
+        # 7. Hash password mới
         new_hashed_password = generate_password_hash(new_password).decode('utf-8')
         
-        # 7. Cập nhật password
+        # 8. Cập nhật password
         _db.users.update_one(
             {'email': email},
             {
@@ -127,10 +131,10 @@ def reset_password_service(token: str, new_password: str):
         # 9. Xóa tất cả refresh tokens của user để force logout
         _db.refresh_tokens.delete_many({'user_email': email})
         
-        return True, "Password reset successfully. Please login with your new password.", None
+        return True, "Đặt lại mật khẩu thành công. Vui lòng đăng nhập với mật khẩu mới.", None
         
     except Exception as e:
-        return False, f"Failed to reset password: {str(e)}", "INTERNAL_ERROR"
+        return False, f"Đặt lại mật khẩu thất bại: {str(e)}", "INTERNAL_ERROR"
 
 def verify_reset_token_service(token: str):
     """
@@ -145,26 +149,26 @@ def verify_reset_token_service(token: str):
         })
         
         if not token_doc:
-            return False, "Invalid reset token", None, "INVALID_TOKEN"
+            return False, "Token đặt lại mật khẩu không hợp lệ", None, "INVALID_TOKEN"
         
         # 2. Kiểm tra token hết hạn chưa
         if token_doc['expiry'] < datetime.utcnow():
             _db.password_reset_tokens.delete_one({'_id': token_doc['_id']})
-            return False, "Reset token has expired", None, "TOKEN_EXPIRED"
+            return False, "Token đặt lại mật khẩu đã hết hạn", None, "TOKEN_EXPIRED"
         
         # 3. Kiểm tra user còn tồn tại không
         user = _db.users.find_one({'email': token_doc['email']})
         if not user:
-            return False, "User not found", None, "USER_NOT_FOUND"
+            return False, "Không tìm thấy người dùng", None, "USER_NOT_FOUND"
         
         # 4. Kiểm tra user có bị disable không
         if not user.get('is_enabled', True):
-            return False, "Account is disabled", None, "ACCOUNT_DISABLED"
+            return False, "Tài khoản đã bị vô hiệu hóa", None, "ACCOUNT_DISABLED"
         
-        return True, "Token is valid", token_doc['email'], None
+        return True, "Token hợp lệ", token_doc['email'], None
         
     except Exception as e:
-        return False, f"Failed to verify token: {str(e)}", None, "INTERNAL_ERROR"
+        return False, f"Xác thực token thất bại: {str(e)}", None, "INTERNAL_ERROR"
 
 def send_reset_password_email(email: str, fullname: str, reset_link: str):
     """

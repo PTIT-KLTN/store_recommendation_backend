@@ -215,11 +215,12 @@ class AllergyService:
             skipped_ingredients = []
             
             for excluded_item in excluded_ingredients:
+                print(excluded_item)
                 # AI Service now returns full structure with all fields
                 ingredient_data = {
                     'ingredient_id': excluded_item.get('ingredient_id', ''),
-                    'name_vi': excluded_item.get('name_vi', ''),
-                    'name_en': excluded_item.get('name_en', ''),
+                    'name_vi': excluded_item.get('vietnamese_name', ''),
+                    'name_en': excluded_item.get('name', ''),
                     'category': excluded_item.get('category', ''),
                     'reason': excluded_item.get('reason', 'Detected from recipe analysis'),
                     'source': 'ai_detection'
@@ -228,8 +229,8 @@ class AllergyService:
                 # Skip if name_vi is empty
                 if not ingredient_data['name_vi']:
                     skipped_ingredients.append({
-                        'name_vi': excluded_item.get('name_vi', 'Unknown'),
-                        'name_en': excluded_item.get('name_en', ''),
+                        'name_vi': excluded_item.get('vietnamese_name', 'Unknown'),
+                        'name_en': excluded_item.get('name', ''),
                         'reason': 'Invalid name_vi'
                     })
                     continue

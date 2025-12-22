@@ -3,29 +3,29 @@ from services.ai_service import get_ai_service_client
 from services.s3_service import get_s3_service
 from services.allergy_service import get_allergy_service
 from utils.token_utils import decode_token
+from flask_jwt_extended import get_jwt_identity, jwt_required
+
 import logging
 
 logger = logging.getLogger(__name__)
 
 ai_bp = Blueprint('ai', __name__)
 
-
 def get_current_user_email():
+    """
+    Returns user email if logged in, None if anonymous user.
+    Works with @jwt_required(optional=True) decorator.
+    """
     try:
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return None
-        
-        parts = auth_header.split()
-        if len(parts) != 2 or parts[0].lower() != 'bearer':
-            return None
-        
-        token = parts[1]
-        user_data = decode_token(token)
-        # Flask-JWT-Extended stores email in 'sub' field
-        return user_data.get('sub') or user_data.get('identity') or user_data.get('email') if user_data else None
-    except Exception:
-        return None
+        current_user = get_jwt_identity()  # Returns None if no token
+        if current_user:
+            if isinstance(current_user, dict) and 'email' in current_user:
+                return current_user['email']
+            elif isinstance(current_user, str):
+                return current_user
+    except Exception as e:
+        logger.debug(f"No user logged in (anonymous): {e}")
+    return None
 
 
 def apply_allergy_filter(result: dict) -> dict:
@@ -57,7 +57,6 @@ def process_excluded_ingredients(result: dict, user_email: str = None) -> dict:
         return result
     
     excluded_ingredients = result.get('excluded_ingredients', [])
-    
     if not excluded_ingredients:
         return result
     
@@ -180,11 +179,13 @@ def detect_error_type(error_message: str, is_image: bool = False) -> str:
     
     return 'unknown'
 
-
 @ai_bp.route('/recipe-analysis', methods=['POST'])
+@jwt_required(optional=True)
 def analyze_recipe():
     try:
         data = request.get_json()
+        user_email = get_current_user_email()
+        print( f"User email from token: {user_email}" )
         if not data:
             return jsonify({'success': False, 'error': 'Request body is required'}), 400
         
@@ -230,9 +231,7 @@ def analyze_recipe():
             return jsonify(build_standard_response('error', result, error_message, user_message)), status_code
         
         elif status == 'success':
-            # Process excluded ingredients and add to user's allergies
-            result = process_excluded_ingredients(result)
-            # Then apply allergy filter to cart items
+            result = process_excluded_ingredients(result, user_email)
             result = apply_allergy_filter(result)
             return jsonify(build_standard_response('success', result)), 200
         
@@ -275,6 +274,7 @@ def health_check_ai_service():
 
 
 @ai_bp.route('/image-analysis', methods=['POST'])
+@jwt_required(optional=True)
 def analyze_image():
     try:
         data = request.get_json()
@@ -350,6 +350,7 @@ def analyze_image():
 
 
 @ai_bp.route('/upload-and-analyze', methods=['POST'])
+@jwt_required(optional=True)
 def upload_and_analyze():
     try:
         if 'image' not in request.files:
