@@ -4,7 +4,8 @@ from services.admin_service import (
     check_super_admin_exists, create_admin_account, 
     create_dish, get_dish_by_id, update_dish, delete_dish, get_all_dishes,
     create_ingredient, get_ingredient_by_id, update_ingredient, delete_ingredient, get_all_ingredients,
-    get_all_categories, toggle_admin_status, update_admin_account, get_all_admins
+    get_all_categories, toggle_admin_status, update_admin_account, get_all_admins,
+    get_all_users, toggle_user_status
 )
 from validators.admin_validators import (
     validate_admin_data, validate_dish_data, 
@@ -379,4 +380,64 @@ def update_admin_status(admin_id):
         return jsonify(result), 200
     except Exception as e:
         return jsonify({'message': f'Error updating admin status: {str(e)}'}), 500
+
+
+# ======= USER MANAGEMENT =======
+# Lấy danh sách người dùng (cho admin và super admin)
+@admin_bp.route('/users', methods=['GET'])
+@jwt_required()
+@admin_required
+def list_users():
+    """
+    GET /api/v1/admin/users
+    Get list of all users with pagination
+    Access: Admin and Super Admin
+    """
+    try:
+        page = int(request.args.get('page', 0))
+        size = int(request.args.get('size', 20))
+        search = request.args.get('search', '').strip()
+
+        result, error = get_all_users(page, size, search if search else None)
+        if error:
+            return jsonify({'message': error}), 500
+        return jsonify(result), 200
+    except ValueError as e:
+        return jsonify({'message': f'Invalid pagination parameters: {str(e)}'}), 400
+    except Exception as e:
+        return jsonify({'message': f'Error fetching users: {str(e)}'}), 500
+
+
+# Disable/Enable tài khoản người dùng (chỉ super admin)
+@admin_bp.route('/users/<user_id>/status', methods=['PATCH'])
+@jwt_required()
+@super_admin_required
+def update_user_status(user_id):
+    """
+    PATCH /api/v1/admin/users/:user_id/status
+    Enable or disable a user account
+    Access: Super Admin only
+    """
+    try:
+        is_valid, msg = validate_object_id(user_id)
+        if not is_valid:
+            return jsonify({'message': msg}), 400
+
+        data = request.get_json()
+        if not data or 'is_enabled' not in data:
+            return jsonify({'message': 'is_enabled is required'}), 400
+        
+        if not isinstance(data['is_enabled'], bool):
+            return jsonify({'message': 'is_enabled must be a boolean value'}), 400
+
+        result, error = toggle_user_status(user_id, data['is_enabled'])
+        if error:
+            return jsonify({'message': error}), 404
+
+        return jsonify({
+            'message': f'User account {"enabled" if data["is_enabled"] else "disabled"} successfully',
+            'user': result
+        }), 200
+    except Exception as e:
+        return jsonify({'message': f'Error updating user status: {str(e)}'}), 500
     
