@@ -188,28 +188,26 @@ class RabbitMQService:
                         future['event'].set()
 
     def _handle_crawling_response(self, ch, method, properties, body) -> None:
-        """Handle response from crawling service with improved error handling."""
         try:
             response = json.loads(body)
-            action = response.get('action')
-            if action == 'task_status_update':
-                # Handle status update event
+
+            if response.get("task_id") and response.get("status"):
                 self.handle_status_event(response)
-            else:
-                correlation_id = response.get('correlationId')
+
+            correlation_id = response.get('correlationId')
+            if correlation_id:
                 with self._lock:
                     if correlation_id in self.response_futures:
                         future = self.response_futures.pop(correlation_id)
                         future['result'] = response
                         future['event'].set()
-            # Acknowledge message
+
             ch.basic_ack(delivery_tag=method.delivery_tag)
-        except json.JSONDecodeError as e:
-            print(f"❌ Invalid JSON in response: {e}")
-            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
         except Exception as e:
             print(f"❌ Error handling response: {e}")
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
+
 
     def handle_status_event(self, event: dict) -> None:
         """Handle task status update events with state transition guard."""

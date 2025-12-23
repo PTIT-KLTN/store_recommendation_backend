@@ -458,3 +458,101 @@ def toggle_admin_status(admin_id, enable: bool):
     return public, None
 
 
+# ======= USER MANAGEMENT =======
+def convert_objectid_to_str(data):
+    """Recursively convert all ObjectId instances to strings"""
+    if isinstance(data, ObjectId):
+        return str(data)
+    elif isinstance(data, dict):
+        return {key: convert_objectid_to_str(value) for key, value in data.items()}
+    elif isinstance(data, list):
+        return [convert_objectid_to_str(item) for item in data]
+    else:
+        return data
+
+def get_all_users(page=0, size=20, search=None):
+    """
+    Get all users with pagination and search
+    Returns users with their detailed information
+    """
+    skip = page * size
+    query = {'role': 'USER'}
+    
+    if search:
+        regex = {'$regex': search, '$options': 'i'}
+        query['$or'] = [
+            {'email': regex}, 
+            {'fullname': regex}
+        ]
+    
+    users = list(
+        db.users.find(query)
+        .sort('created_at', -1)
+        .skip(skip)
+        .limit(size)
+    )
+    total = db.users.count_documents(query)
+    total_pages = (total + size - 1) // size if size > 0 else 0
+
+    # Convert to public dict (hide password)
+    from models.user import User
+    users_list = []
+    for user_doc in users:
+        user_obj = User.from_dict(user_doc)
+        user_info = {
+            'id': str(user_doc['_id']),
+            'email': user_obj.email,
+            'fullname': user_obj.fullname,
+            'role': user_obj.role,
+            'location': convert_objectid_to_str(user_obj.location),
+            'near_stores': convert_objectid_to_str(user_obj.near_stores),
+            'saved_baskets': convert_objectid_to_str(user_obj.saved_baskets),
+            'favourite_stores': convert_objectid_to_str(user_obj.favourite_stores),
+            'allergies': convert_objectid_to_str(user_obj.allergies),
+            'is_enabled': user_obj.is_enabled,
+            'created_at': user_obj.created_at,
+            'near_stores_updated_at': user_doc.get('near_stores_updated_at'),
+            'updated_at': user_doc.get('updated_at')
+        }
+        users_list.append(user_info)
+
+    return {
+        'users': users_list,
+        'pagination': {
+            'currentPage': page,
+            'pageSize': size,
+            'totalPages': total_pages,
+            'totalElements': total,
+            'hasNext': page < total_pages - 1,
+            'hasPrevious': page > 0
+        }
+    }, None
+
+
+def toggle_user_status(user_id, enable: bool):
+    """
+    Enable or disable a user account
+    Only super admin can perform this action
+    """
+    result = db.users.update_one(
+        {'_id': ObjectId(user_id)},
+        {'$set': {'is_enabled': enable, 'updated_at': datetime.utcnow()}}
+    )
+    if result.matched_count == 0:
+        return None, "User not found"
+
+    updated = db.users.find_one({'_id': ObjectId(user_id)})
+    from models.user import User
+    user_obj = User.from_dict(updated)
+    
+    user_info = {
+        'id': str(updated['_id']),
+        'email': user_obj.email,
+        'fullname': user_obj.fullname,
+        'role': user_obj.role,
+        'is_enabled': user_obj.is_enabled,
+        'updated_at': updated.get('updated_at')
+    }
+    return user_info, None
+
+
